@@ -16,15 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev &
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
-
-RUN pip install uvicorn
-
-RUN pip install fastapi
-
-RUN pip install python-multipart
-
-RUN pip install openpyxl
+    pip install -r requirements.txt && \
+    pip install uvicorn fastapi python-multipart openpyxl
 
 # Copy the current directory contents into the container
 COPY . /app
