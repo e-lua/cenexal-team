@@ -43,6 +43,21 @@ app.add_middleware(
 async def read_root():
     return {"Unauthorized access"}
 
+@app.get("/cenexal-team/v1/file")
+async def get_all_file():
+    archivos = []
+    for nombre_archivo in os.listdir("data"):
+        ruta_archivo = os.path.join("data", nombre_archivo)
+        if os.path.isfile(ruta_archivo):
+            archivos.append(nombre_archivo)
+
+    # OK
+    response_obj = Response(error=Error(code=0, detail=""), data=archivos)
+    return JSONResponse(
+        status_code=200,
+        content=response_obj.model_dump()
+    )
+
 @app.post("/cenexal-team/v1/hta/file/prepare")
 async def prepare_file(file: UploadFile = File(...)):
     
