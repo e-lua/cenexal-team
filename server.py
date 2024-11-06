@@ -2,12 +2,12 @@ from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from models.models import Response,Error,SummarizeQuery
-from dotenv import load_dotenv
 from repositories.azureopenai import AzureOpenAIRepository
 from services.file import FileService
 from services.llm import LlmService
+from dotenv import load_dotenv
 import os
-import time
+
 # Load env
 load_dotenv()
 
@@ -15,7 +15,7 @@ load_dotenv()
 azure_open_ai_repository = AzureOpenAIRepository(azure_openai_url=os.getenv("AZURE_OPENAI_URL"),azure_deployment=os.getenv("AZURE_DEPLOYMENT"),azure_openai_api_key=os.getenv("AZURE_OPENAI_KEY"),azure_endpoint=os.getenv("AZURE_ENDPOINT"),azure_api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
 
 # Initialize FileService
-file_service = FileService(source_path="../../data",destination_path="../../data")
+file_service = FileService(source_path="data",destination_path="data")
 
 # Initialize LlmService
 llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),os.getenv("AZURE_OPENAI_KEY"),azure_open_ai_repository)
@@ -75,7 +75,7 @@ async def prepare_file(file: UploadFile = File(...)):
         )
     
     # Storage file
-    file_location = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', file.filename)
+    file_location = os.path.join('data', file.filename)
     with open(file_location, "wb") as file_object:
         file_object.write(file.file.read())
         

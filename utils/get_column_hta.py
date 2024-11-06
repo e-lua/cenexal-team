@@ -5,11 +5,8 @@ import os
 # This function gets the data from the requested column and the record id from the cleaned file
 def get_columns_hta(path: str,file_name: str, file_extension: str,column_name:str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str):
     
-    # LRead excel
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-
     try:
-        csv_output = os.path.join(current_dir, f'{path}/{file_name}.{file_extension}')
+        csv_output = os.path.join( f'{path}/{file_name}.{file_extension}')
     except Exception as e:
         return {"rows":0,"column_data": ""},str(e)
 

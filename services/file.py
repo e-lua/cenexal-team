@@ -13,7 +13,7 @@ class FileService:
 
     def delete(self,file_name: str, file_extension: str):
         
-        file_path = f'../data/{file_name}.{file_extension}'
+        file_path = f'data/{file_name}.{file_extension}'
         
         print(file_path)
                

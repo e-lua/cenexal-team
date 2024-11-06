@@ -5,13 +5,10 @@ import re
 
 # This function takes the new rows from the "HTA Record Search" table and updates it into the cleaned and prepared CSV
 def prepare_hta(path_source: str, path_destination: str, file_name: str, file_extension: str):
-    
-    # LRead excel
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-
+   
     try:
-        excel_file = os.path.join(current_dir, f'{path_source}/{file_name}.{file_extension}')
-        csv_output = os.path.join(current_dir, f'{path_destination}/{file_name}_PREPARED.csv')
+        excel_file = os.path.join(f'{path_source}/{file_name}.{file_extension}')
+        csv_output = os.path.join(f'{path_destination}/{file_name}_PREPARED.csv')
         
         # Verify HTARecordSearch_Clean.csv
         if not os.path.exists(csv_output):
