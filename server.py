@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from models.models import Response,Error,SummarizeQuery
@@ -10,6 +10,9 @@ import os
 
 # Load env
 load_dotenv()
+
+# ApiKey
+API_KEY=os.getenv("API_KEY")
 
 # Initialize AzureOpenAIRepository
 azure_open_ai_repository = AzureOpenAIRepository(azure_openai_url=os.getenv("AZURE_OPENAI_URL"),azure_deployment=os.getenv("AZURE_DEPLOYMENT"),azure_openai_api_key=os.getenv("AZURE_OPENAI_KEY"),azure_endpoint=os.getenv("AZURE_ENDPOINT"),azure_api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
@@ -44,7 +47,14 @@ async def read_root():
     return {"Unauthorized access"}
 
 @app.get("/cenexal-team/v1/file")
-async def get_all_file():
+async def get_all_file(request: Request):
+    
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
     archivos = []
     for nombre_archivo in os.listdir("data"):
         ruta_archivo = os.path.join("data", nombre_archivo)
@@ -59,8 +69,14 @@ async def get_all_file():
     )
 
 @app.post("/cenexal-team/v1/hta/file/prepare")
-async def prepare_file(file: UploadFile = File(...)):
+async def prepare_file(request: Request,file: UploadFile = File(...)):
     
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
     filename_splitted = file.filename.split(".")  
     file_name = filename_splitted[0]
     file_extension =  filename_splitted[1]
@@ -110,8 +126,14 @@ async def prepare_file(file: UploadFile = File(...)):
     )
 
 @app.get("/cenexal-team/v1/hta/file/column")
-async def get_column(file_name: str, file_extension: str, column_name: str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str):
-    
+async def get_column(request: Request,file_name: str, file_extension: str, column_name: str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str):
+
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
     # Get column info
     reponse_service = FileService.get_column(file_service,"HTA",file_name,file_extension,column_name, HTA_AGENCY_NAME, COUNTRY, HTA_DECISION_DT, BIOMARKERS, PRIMARY_DISEASE, DRUG_NAME, GENERIC_DRUG_NAME, DRUG_COMBINATIONS, TREATMENT_MODALITY, ASMR_REQUESTED, ASMR_RECIEVED)
     if reponse_service.error.code != 0:
@@ -128,8 +150,14 @@ async def get_column(file_name: str, file_extension: str, column_name: str, HTA_
     )
 
 @app.post("/cenexal-team/v1/hta/summarize")
-async def summarize(payload: SummarizeQuery):
+async def summarize(request: Request,payload: SummarizeQuery):
     
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
     # Get column info
     reponse_service = LlmService.get_summary(llm_service,payload.max_token_input,payload.max_token_output,payload.text_to_summary,payload.user_prompt)
     if reponse_service.error.code != 0:
