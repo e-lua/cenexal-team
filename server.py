@@ -97,14 +97,6 @@ async def prepare_file(request: Request,file: UploadFile = File(...)):
             content=reponse_delete_destination.model_dump()
         )
     
-    # Delete destination file - JSON Prepared
-    reponse_delete_destination = FileService.delete(file_service,"hta","json")
-    if reponse_delete_destination.error.code != 0:
-        return JSONResponse(
-            status_code=500,
-            content=reponse_delete_destination.model_dump()
-        )
-    
     # Storage file
     file_location = os.path.join('data', file.filename)
     with open(file_location, "wb") as file_object:

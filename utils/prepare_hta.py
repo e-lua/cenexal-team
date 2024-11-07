@@ -128,14 +128,18 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
     unique_values = {}
     for col in filters.columns: 
         unique_values[col] = list(set(filters[col].str.split(r'[,+]', expand=True).stack()))
-        
+    
     # Create JSON
     output = []
     for col, values in unique_values.items():
+            
+        # Remove duplicates and sort values
+        unique_sorted_values = sorted({val.strip() for val in values if val.strip().lower() != "na"})
         
-        choices = [{"title": val.strip(),"value": val.strip()} for val in values if val.strip().lower() != "na"]
+        # Create the choices sorted and with unique values
+        choices = [{"title": val, "value": val} for val in unique_sorted_values]
         
-        if col in ["HTA_AGENCY_NAME","COUNTRY"]:
+        if col in ["COUNTRY"]:
             output.append({"id":col,"label": f"Select one {col}", "choices": choices, "placeholder": ""})
         else:
             output.append({"id":col,"label": f"Select one or many {col}", "choices": choices, "placeholder": "", "isMultiSelect": True})            
