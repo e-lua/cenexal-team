@@ -20,7 +20,7 @@ class LlmService:
         # Verify token limit per minute
         is_exceeded = verify_limit_token_per_minute(max_token_output)
         if is_exceeded:
-           return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data="") 
+           return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data=[]) 
         
         # Count words
         if len(text_to_summarize) < 20:
@@ -29,15 +29,15 @@ class LlmService:
         # Count tokens
         tokens,error_details = token_counter(text_to_summarize,self.model)
         if error_details != "":
-            return Response(error=Error(code=5001, detail=error_details), data="")
+            return Response(error=Error(code=5001, detail=error_details), data=[])
         
         if tokens > max_token_input:
-            return Response(error=Error(code=4003, detail="The text to be summarized is very large"), data="")
+            return Response(error=Error(code=4003, detail="The text to be summarized is very large"), data=[])
         
         # Summarize text
         summary,error_details = self.azureopenaiRepository.Summarize(self.azure_openai_key,system_prompt,user_prompt,text_to_summarize,max_token_output)
         if error_details != "":
-            return Response(error=Error(code=5001, detail=error_details), data="")
+            return Response(error=Error(code=5001, detail=error_details), data=[])
 
         # Split summary
         fragments_to_msteams = split_text_by_bytes(summary,20000)

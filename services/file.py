@@ -42,7 +42,7 @@ class FileService:
         if file=="HTA":
             result,error_details = get_columns_hta(self.destination_path,file_name,file_extension,column_name, HTA_AGENCY_NAME, COUNTRY, HTA_DECISION_DT, BIOMARKERS, PRIMARY_DISEASE, DRUG_NAME, GENERIC_DRUG_NAME, DRUG_COMBINATIONS, TREATMENT_MODALITY, ASMR_REQUESTED, ASMR_RECIEVED)
             if error_details != "":
-                return Response(error=Error(code=5001, detail=f"error get column {column_name} from hta: details: "+error_details), data="")
+                return Response(error=Error(code=5001, detail=f"error get column {column_name} from hta: details: "+error_details), data={"rows":0,"column_data": ""})
                 
                 
         # Ok
