@@ -15,7 +15,7 @@ class LlmService:
         self.azureopenaiRepository = azureopenaiRepository
         self.azure_openai_key=azure_openai_key
 
-    def get_summary(self,max_token_input: int,max_token_output: int,text_to_summarize: str,user_prompt: str):
+    def get_summary(self,max_token_input: int,max_token_output: int,text_to_summarize: str,system_prompt: str,user_prompt: str):
         
         # Verify token limit per minute
         is_exceeded = verify_limit_token_per_minute(max_token_output)
@@ -35,7 +35,7 @@ class LlmService:
             return Response(error=Error(code=4003, detail="The text to be summarized is very large"), data="")
         
         # Summarize text
-        summary,error_details = self.azureopenaiRepository.Summarize(self.azure_openai_key,user_prompt,text_to_summarize,max_token_output)
+        summary,error_details = self.azureopenaiRepository.Summarize(self.azure_openai_key,system_prompt,user_prompt,text_to_summarize,max_token_output)
         if error_details != "":
             return Response(error=Error(code=5001, detail=error_details), data="")
 

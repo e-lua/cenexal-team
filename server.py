@@ -159,7 +159,7 @@ async def summarize(request: Request,payload: SummarizeQuery):
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service = LlmService.get_summary(llm_service,payload.max_token_input,payload.max_token_output,payload.text_to_summary,payload.user_prompt)
+    reponse_service = LlmService.get_summary(llm_service,payload.max_token_input,payload.max_token_output,payload.text_to_summary,payload.system_prompt,payload.user_prompt)
     if reponse_service.error.code != 0:
         
         code_error= str(reponse_service.error.code)

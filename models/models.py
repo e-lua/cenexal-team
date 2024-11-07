@@ -11,6 +11,7 @@ class Response(BaseModel):
 
 class SummarizeQuery(BaseModel):
     text_to_summary: str
+    system_prompt: str
     user_prompt: str
     max_token_input: int
     max_token_output: int
