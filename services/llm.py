@@ -24,7 +24,7 @@ class LlmService:
         
         # Count words
         if len(text_to_summarize) < 20:
-            return Response(error=Error(code=4002, detail="The information to be summarized is very little so it will not be processed."), data="")
+            return Response(error=Error(code=4002, detail="The information to be summarized is very little so it will not be processed."), data=[])
         
         # Count tokens
         tokens,error_details = token_counter(text_to_summarize,self.model)
