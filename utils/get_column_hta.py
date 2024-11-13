@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # This function gets the data from the requested column and the record id from the cleaned file
-def get_columns_hta(path: str,file_name: str, file_extension: str,column_name:str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str):
+def get_columns_hta(path: str,file_name: str, file_extension: str,column_name:str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str, HTA_STATUS:str):
     
     try:
         csv_output = os.path.join( f'{path}/{file_name}.{file_extension}')
@@ -84,9 +84,15 @@ def get_columns_hta(path: str,file_name: str, file_extension: str,column_name:st
         mask_ASMR_RECIEVED = df_cleaned['ASMR_RECIEVED'].apply(lambda x: any([f in x for f in ASMR_RECIEVED])) 
     else: 
         mask_ASMR_RECIEVED = pd.Series([True] * len(df_cleaned)) 
-      
+    
+    if HTA_STATUS: 
+        HTA_STATUS = [f.strip() for f in HTA_STATUS.split(',')] 
+        mask_HTA_STATUS = df_cleaned['HTA_STATUS'].apply(lambda x: any([f in x for f in HTA_STATUS])) 
+    else: 
+        mask_HTA_STATUS = pd.Series([True] * len(df_cleaned)) 
+     
         
-    filtered_df = df_cleaned[mask_HTA_AGENCY_NAME & mask_COUNTRY & mask_HTA_DECISION_DT & mask_BIOMARKERS & mask_PRIMARY_DISEASE & mask_DRUG_NAME & mask_GENERIC_DRUG_NAME & mask_DRUG_COMBINATIONS & mask_TREATMENT_MODALITY & mask_ASMR_REQUESTED & mask_ASMR_RECIEVED]
+    filtered_df = df_cleaned[mask_HTA_AGENCY_NAME & mask_COUNTRY & mask_HTA_DECISION_DT & mask_BIOMARKERS & mask_PRIMARY_DISEASE & mask_DRUG_NAME & mask_GENERIC_DRUG_NAME & mask_DRUG_COMBINATIONS & mask_TREATMENT_MODALITY & mask_ASMR_REQUESTED & mask_ASMR_RECIEVED & mask_HTA_STATUS]
     
     
     # Return specified column if it exists 

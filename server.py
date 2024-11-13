@@ -88,15 +88,7 @@ async def prepare_file(request: Request,file: UploadFile = File(...)):
             status_code=500,
             content=reponse_delete_source.model_dump()
         )
-    
-    # Delete destination file - CSV Prepared
-    reponse_delete_destination = FileService.delete(file_service,file_name+"_PREPARED","csv")
-    if reponse_delete_destination.error.code != 0:
-        return JSONResponse(
-            status_code=500,
-            content=reponse_delete_destination.model_dump()
-        )
-    
+
     # Storage file
     file_location = os.path.join('data', file.filename)
     with open(file_location, "wb") as file_object:
@@ -117,8 +109,32 @@ async def prepare_file(request: Request,file: UploadFile = File(...)):
         content=response_obj.model_dump()
     )
 
+@app.get("/cenexal-team/v1/hta/file/filters")
+async def get_filters_from_file(request: Request,file_name: str):
+    
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
+    # Get filters
+    reponse_service = FileService.get_filters(file_service,"HTA",file_name)
+    if reponse_service.error.code != 0:
+        return JSONResponse(
+            status_code=500,
+            content=reponse_service.model_dump()
+        )
+
+    # OK
+    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
+    return JSONResponse(
+        status_code=200,
+        content=response_obj.model_dump()
+    )
+
 @app.get("/cenexal-team/v1/hta/file/column")
-async def get_column(request: Request,file_name: str, file_extension: str, column_name: str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str):
+async def get_column(request: Request,file_name: str, file_extension: str, column_name: str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str, HTA_STATUS:str):
 
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -127,7 +143,7 @@ async def get_column(request: Request,file_name: str, file_extension: str, colum
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service = FileService.get_column(file_service,"HTA",file_name,file_extension,column_name, HTA_AGENCY_NAME, COUNTRY, HTA_DECISION_DT, BIOMARKERS, PRIMARY_DISEASE, DRUG_NAME, GENERIC_DRUG_NAME, DRUG_COMBINATIONS, TREATMENT_MODALITY, ASMR_REQUESTED, ASMR_RECIEVED)
+    reponse_service = FileService.get_column(file_service,"HTA",file_name,file_extension,column_name, HTA_AGENCY_NAME, COUNTRY, HTA_DECISION_DT, BIOMARKERS, PRIMARY_DISEASE, DRUG_NAME, GENERIC_DRUG_NAME, DRUG_COMBINATIONS, TREATMENT_MODALITY, ASMR_REQUESTED, ASMR_RECIEVED,HTA_STATUS)
     if reponse_service.error.code != 0:
         return JSONResponse(
             status_code=500,

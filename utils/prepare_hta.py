@@ -76,6 +76,9 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
         df_new['CLINICAL_NEGATIVES']=df['Clinical negatives'].fillna('na').replace('', 'na').astype(str)
         df_new['FINAL_RECOMMENDATION']=df['Recommendation'].fillna('na').replace('', 'na').astype(str)
         df_new['SUBGROUP_NAME'] = df['Subgroup name 1'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 2'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 3'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 4'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 5'].fillna('na').replace('', 'na').astype(str)
+        df_new['HTA_STATUS']=df['HTA status'].fillna('na').replace('', 'na').astype(str)
+        df_new['QUINTILES_LINK']=df['Direct link'].fillna('na').replace('', 'na').astype(str)
+        df_new['WEB_URL']=df['Weblink'].fillna('na').replace('', 'na').astype(str)
     except:
         return "","Error prepare columns"
     
@@ -122,7 +125,7 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
     df_final.to_csv(csv_output, index=False)
     
     # Prepare filters
-    filters= df_new[["HTA_AGENCY_NAME","COUNTRY","BIOMARKERS","PRIMARY_DISEASE","DRUG_NAME","GENERIC_DRUG_NAME","DRUG_COMBINATIONS","TREATMENT_MODALITY","ASMR_REQUESTED","ASMR_RECIEVED"]]
+    filters= df_new[["HTA_AGENCY_NAME","COUNTRY","BIOMARKERS","PRIMARY_DISEASE","DRUG_NAME","GENERIC_DRUG_NAME","DRUG_COMBINATIONS","TREATMENT_MODALITY","ASMR_REQUESTED","ASMR_RECIEVED","HTA_STATUS"]]
     
     # Get unique values for each column 
     unique_values = {}
@@ -139,10 +142,7 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
         # Create the choices sorted and with unique values
         choices = [{"title": val, "value": val} for val in unique_sorted_values]
         
-        if col in ["COUNTRY"]:
-            output.append({"id":col,"label": f"Select one {col}", "choices": choices, "placeholder": ""})
-        else:
-            output.append({"id":col,"label": f"Select one or many {col}", "choices": choices, "placeholder": "", "isMultiSelect": True})            
+        output.append({"id":col,"label": f"Select one or many {col}", "choices": choices, "placeholder": "", "isMultiSelect": True})          
         
     # Print
     return output,""
