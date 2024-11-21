@@ -46,7 +46,12 @@ app.add_middleware(
 async def read_root():
     return {"Unauthorized access"}
 
-@app.get("/cenexal-team/v1/file")
+@app.get(
+    "/cenexal-team/v1/file",
+    name="Get files",
+    operation_id="get_cenexal_team_file",
+    description="Gets all the original and prepared files associated with cenexal team.",
+)
 async def get_all_file(request: Request):
     
     api_key = request.headers.get("api-key")
@@ -68,7 +73,12 @@ async def get_all_file(request: Request):
         content=response_obj.model_dump()
     )
 
-@app.post("/cenexal-team/v1/hta/file/prepare")
+@app.post(
+    "/cenexal-team/v1/hta/file/prepare",
+    name="Prepare file",
+    operation_id="post_cenexal_team_file_prepare",
+    description="Prepare the uploaded file, convert it to csv and save the original and converted file.",
+)
 async def prepare_file(request: Request,file: UploadFile = File(...)):
     
     api_key = request.headers.get("api-key")
@@ -109,7 +119,12 @@ async def prepare_file(request: Request,file: UploadFile = File(...)):
         content=response_obj.model_dump()
     )
 
-@app.get("/cenexal-team/v1/hta/file/filters")
+@app.get(
+    "/cenexal-team/v1/hta/file/filters",
+    name="Get filters",
+    operation_id="get_cenexal_team_filters",
+    description="Get the filters ready to incorporate the chatbot form for Teams into Adaptive Card.",
+)
 async def get_filters_from_file(request: Request,file_name: str):
     
     api_key = request.headers.get("api-key")
@@ -133,7 +148,12 @@ async def get_filters_from_file(request: Request,file_name: str):
         content=response_obj.model_dump()
     )
 
-@app.get("/cenexal-team/v1/hta/file/column")
+@app.get(
+    "/cenexal-team/v1/hta/file/column",
+    name="Get data from column",
+    operation_id="get_cenexal_team_column_data",
+    description="Gets the column data from cenexal file, row by row, in a concatenated manner.",
+)
 async def get_column(request: Request,file_name: str, file_extension: str, column_name: str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str, HTA_STATUS:str):
 
     api_key = request.headers.get("api-key")
@@ -157,7 +177,12 @@ async def get_column(request: Request,file_name: str, file_extension: str, colum
         content=response_obj.model_dump()
     )
 
-@app.post("/cenexal-team/v1/hta/summarize")
+@app.post(
+    "/cenexal-team/v1/hta/summarize",
+    name="Get data summarized",
+    operation_id="get_summarized_data",
+    description="Gets a text and respond with the summary in Markdown table format validated for MS Teams",
+)
 async def summarize(request: Request,payload: SummarizeQuery):
     
     api_key = request.headers.get("api-key")
