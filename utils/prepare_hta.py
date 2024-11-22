@@ -3,6 +3,33 @@ import os
 import json
 import re
 
+def format_coa_details(row):
+    # Clean strins and manage non-existent columns
+    def clean_str(value):
+        if pd.isna(value):
+            return 'na'
+        return str(value).strip().lstrip('-')
+    
+    def get_column_value(row, column_name):
+        if column_name in row.index:
+            return clean_str(row[column_name])
+        return 'na'
+    
+    # First add the data from COA details column
+    result = clean_str(row['COA details']) + "\n\n"
+    
+    for i in range(1, 6):
+        # Only add info if the column exists
+        if f'Instrument {i}' in row.index:
+            result += (
+                f"COA Instrument {i} Name: {get_column_value(row, f'Instrument {i}')}\n"
+                f"Instrument {i} Clinical Significance: {get_column_value(row, f'Significance {i}')}\n"
+                f"Instrument {i} HTA Discussion: {get_column_value(row, f'Discussion by HTA body {i}')} & "
+                f"{get_column_value(row, f'HTA Discussion details {i}')}\n\n"
+            )
+    
+    return result
+
 # This function takes the new rows from the "HTA Record Search" table and updates it into the cleaned and prepared CSV
 def prepare_hta(path_source: str, path_destination: str, file_name: str, file_extension: str):
    
@@ -31,56 +58,57 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
     try:
         df_new['ID']=df['Direct link'].apply(lambda x: x.split("https://hta.quintiles.com/HTA/View/")[1] if "https://hta.quintiles.com/HTA/View/" in x else None)
         df_new['HTA_AGENCY_NAME']=df['Agency'].apply(lambda x: x.strip() if isinstance(x, str) else x)
-        df_new['COUNTRY']=df['Country'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').replace('', 'na').astype(str)
+        df_new['COUNTRY']=df['Country'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
         df_new['HTA_DECISION_DT'] = pd.to_datetime(df['Decision date'], format='%m/%d/%Y')
         df_new['HTA_DECISION_DT']= df_new['HTA_DECISION_DT'].dt.strftime('%Y%m%d')
-        df_new['BIOMARKERS']=df['Primary_disease_subtype_3'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').replace('', 'na').astype(str)
-        df_new['PRIMARY_DISEASE']=df['Primary_disease_subtype_1(3)'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').replace('', 'na').astype(str)
-        df_new['DRUG_NAME']=df['Drug'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').replace('', 'na').astype(str)
-        df_new['GENERIC_DRUG_NAME']=df['Drug generic'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').replace('', 'na').astype(str)
-        df_new['DRUG_COMBINATIONS']=df['Drug combinations'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').replace('', 'na').astype(str)        
-        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].fillna('na').replace('', 'na').astype(str)
-        df_new['DOSING']=df['Dosing'].fillna('na').replace('', 'na').astype(str)
-        df_new['TREATMENT_DURATION']=df['Maximum treatment duration'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['INTERVENTION_ADD_DETAILS']=df['Additional details'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['TREATMENT_LINE']=df['Treatment line'].str.strip().fillna('na').replace('', 'na').str.lstrip('-')
-        df_new['TREATMENT_MODALITY']=df['Treatment modality'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_DRUGS']=df['Comparator drug(s) used by manufacturer'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_COMBINATION_THERAPY']=df['Comparator drug(s) used by manufacturer'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_DRUGS_PAYERS']=df['Most relevant comparator drug(s) for payer'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_ADD_DETAILS']=df['Additional comparator details'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['TARGET_POPULATION']=df['Reviewed indication'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['ASMR_REQUESTED']=df['ASMR requested (France)'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['ASMR_RECIEVED']=df['ASMR rating (France)'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['CLINICAL_OUTCOMES']=df['Clinical outcomes'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['DATA_PACKAGES']=df['Clinical evidence included'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['STUDY_TYPE']=df['Type of evidence evaluated'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['EVENDENCE_SYNTHESIS']=df['Type of evidence synthesis'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['OUTCOMES_FROM_EVIDENCE']=df['Outcomes from evidence synthesis evaluated'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['COA_INSTRUMENTS']=df['COA instrument'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['COA_TYPE']=df['COA type'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['COA_DETAILS']=df['COA details'].fillna('na').replace('', 'na').str.strip().str.lstrip('-')
-        df_new['RWE_USED']=df['RWE used as supporting evidence?'].fillna('na').replace('', 'na').astype(str)
-        df_new['RWE_DATA_TYPE']=df['Area supported'].fillna('na').replace('', 'na').astype(str)
-        df_new['RWE_PAYER_ACCEPTED']=df['Accepted by payer?'].fillna('na').replace('', 'na').astype(str)
-        df_new['HTA_ANALYSIS_TYPE']=df['Type of analysis'].fillna('na').replace('', 'na').astype(str)
-        df_new['CEA_EFFECTIVENESS_MEASURE']=df['If CEA, what is effectiveness measure?'].fillna('na').replace('', 'na').astype(str)
-        df_new['ECON_MODEL']=df['Type of model'].fillna('na').replace('', 'na').astype(str)
-        df_new['TIME_HORIZON']=df['Time horizon'].fillna('na').replace('', 'na').astype(str)
-        df_new['ECON_MODEL_DESIGN']=df['Model design and key assumptions'].fillna('na').replace('', 'na').astype(str)
-        df_new['PAYER_DECISION']=df['Payer details'].fillna('na').replace('', 'na').astype(str)
-        df_new['KEY_DRIVE_CE']=df['Key drivers of cost-effectiveness'].fillna('na').replace('', 'na').astype(str)
-        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].fillna('na').replace('', 'na').astype(str)
+        df_new['BIOMARKERS']=df['Primary_disease_subtype_3'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
+        df_new['PRIMARY_DISEASE']=df['Primary_disease_subtype_1(3)'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
+        df_new['DRUG_NAME']=df['Drug'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
+        df_new['GENERIC_DRUG_NAME']=df['Drug generic'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
+        df_new['DRUG_COMBINATIONS']=df['Drug combinations'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)        
+        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].fillna('na').astype(str)
+        df_new['DOSING']=df['Dosing'].fillna('na').astype(str)
+        df_new['TREATMENT_DURATION']=df['Maximum treatment duration'].fillna('na').str.strip().str.lstrip('-')
+        df_new['INTERVENTION_ADD_DETAILS']=df['Additional details'].fillna('na').str.strip().str.lstrip('-')
+        df_new['TREATMENT_LINE']=df['Treatment line'].str.strip().fillna('na').str.lstrip('-')
+        df_new['TREATMENT_MODALITY']=df['Treatment modality'].fillna('na').str.strip().str.lstrip('-')
+        df_new['COMPARATOR_DRUGS']=df['Comparator drug(s) used by manufacturer'].fillna('na').str.strip().str.lstrip('-')
+        df_new['COMPARATOR_COMBINATION_THERAPY']=df['Comparator drug(s) used by manufacturer'].fillna('na').str.strip().str.lstrip('-')
+        df_new['COMPARATOR_DRUGS_PAYERS']=df['Most relevant comparator drug(s) for payer'].fillna('na').str.strip().str.lstrip('-')
+        df_new['COMPARATOR_ADD_DETAILS']=df['Additional comparator details'].fillna('na').str.strip().str.lstrip('-')
+        df_new['TARGET_POPULATION']=df['Reviewed indication'].fillna('na').str.strip().str.lstrip('-')
+        df_new['ASMR_REQUESTED']=df['ASMR requested (France)'].fillna('na').str.strip().str.lstrip('-')
+        df_new['ASMR_RECIEVED']=df['ASMR rating (France)'].fillna('na').str.strip().str.lstrip('-')
+        df_new['CLINICAL_OUTCOMES']=df['Clinical outcomes'].fillna('na').str.strip().str.lstrip('-')
+        df_new['DATA_PACKAGES']=df['Clinical evidence included'].fillna('na').str.strip().str.lstrip('-')
+        df_new['STUDY_TYPE']=df['Type of evidence evaluated'].fillna('na').str.strip().str.lstrip('-')
+        df_new['EVENDENCE_SYNTHESIS']=df['Type of evidence synthesis'].fillna('na').str.strip().str.lstrip('-')
+        df_new['OUTCOMES_FROM_EVIDENCE']=df['Outcomes from evidence synthesis evaluated'].fillna('na').str.strip().str.lstrip('-')
+        df_new['COA_INSTRUMENTS']=df['COA instrument'].fillna('na').str.strip().str.lstrip('-')
+        df_new['COA_TYPE']=df['COA type'].fillna('na').str.strip().str.lstrip('-')
+        df_new['COA_DETAILS']=df.apply(format_coa_details, axis=1)
+        
+        df_new['RWE_USED']=df['RWE used as supporting evidence?'].fillna('na').astype(str)
+        df_new['RWE_DATA_TYPE']=df['Area supported'].fillna('na').astype(str)
+        df_new['RWE_PAYER_ACCEPTED']=df['Accepted by payer?'].fillna('na').astype(str)
+        df_new['HTA_ANALYSIS_TYPE']=df['Type of analysis'].fillna('na').astype(str)
+        df_new['CEA_EFFECTIVENESS_MEASURE']=df['If CEA, what is effectiveness measure?'].fillna('na').astype(str)
+        df_new['ECON_MODEL']=df['Type of model'].fillna('na').astype(str)
+        df_new['TIME_HORIZON']=df['Time horizon'].fillna('na').astype(str)
+        df_new['ECON_MODEL_DESIGN']=df['Model design and key assumptions'].fillna('na').astype(str)
+        df_new['PAYER_DECISION']=df['Payer details'].fillna('na').astype(str)
+        df_new['KEY_DRIVE_CE']=df['Key drivers of cost-effectiveness'].fillna('na').astype(str)
+        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].fillna('na').astype(str)
         df_new['GENERAL_HTA_CONCLUSION_SUMMARY']=''
-        df_new['CLINICAL_POSITIVES']=df['Clinical positives'].fillna('na').replace('', 'na').astype(str)
-        df_new['CLINICAL_NEGATIVES']=df['Clinical negatives'].fillna('na').replace('', 'na').astype(str)
-        df_new['FINAL_RECOMMENDATION']=df['Recommendation'].fillna('na').replace('', 'na').astype(str)
-        df_new['SUBGROUP_NAME'] = df['Subgroup name 1'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 2'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 3'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 4'].fillna('na').replace('', 'na').astype(str) + ' ' + df['Subgroup name 5'].fillna('na').replace('', 'na').astype(str)
-        df_new['HTA_STATUS']=df['HTA status'].fillna('na').replace('', 'na').astype(str)
-        df_new['QUINTILES_LINK']=df['Direct link'].fillna('na').replace('', 'na').astype(str)
-        df_new['WEB_URL']=df['Weblink'].fillna('na').replace('', 'na').astype(str)
-    except:
-        return "","Error prepare columns"
+        df_new['CLINICAL_POSITIVES']=df['Clinical positives'].fillna('na').astype(str)
+        df_new['CLINICAL_NEGATIVES']=df['Clinical negatives'].fillna('na').astype(str)
+        df_new['FINAL_RECOMMENDATION']=df['Recommendation'].fillna('na').astype(str)
+        df_new['SUBGROUP_NAME'] = df['Subgroup name 1'].fillna('na').astype(str) + ' ' + df['Subgroup name 2'].fillna('na').astype(str) + ' ' + df['Subgroup name 3'].fillna('na').astype(str) + ' ' + df['Subgroup name 4'].fillna('na').astype(str) + ' ' + df['Subgroup name 5'].fillna('na').astype(str)
+        df_new['HTA_STATUS']=df['HTA status'].fillna('na').astype(str)
+        df_new['QUINTILES_LINK']=df['Direct link'].fillna('na').astype(str)
+        df_new['WEB_URL']=df['Weblink'].fillna('na').astype(str)
+    except  Exception as e:
+        return "",f"error prepare columns, details: {e}"
     
     # Read CSV
     try:

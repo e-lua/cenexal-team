@@ -33,7 +33,7 @@ class FileService:
         if file=="HTA":
             json_data,error_details = prepare_hta(self.source_path,self.destination_path,file_name,file_extension)
             if error_details != "":
-                return Response(error=Error(code=5001, detail="error prepare hta"), data="")
+                return Response(error=Error(code=5001, detail="error prepare hta, details: "+error_details), data="")
                 
         # Ok
         return Response(error=Error(code=0, detail=""), data=json_data)
