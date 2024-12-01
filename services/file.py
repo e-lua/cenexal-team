@@ -15,9 +15,7 @@ class FileService:
     def delete(self,file_name: str, file_extension: str):
         
         file_path = f'data/{file_name}.{file_extension}'
-        
-        print(file_path)
-               
+                       
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)

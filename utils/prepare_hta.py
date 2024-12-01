@@ -1,32 +1,82 @@
 import pandas as pd
 import os
-import json
-import re
+import numpy as np
+import unicodedata
+
+def clean_and_preserve(x):
+    if isinstance(x, str):
+        return x.strip()
+    if pd.isna(x):
+        return np.nan
+    return str(x)
+
+def clean_text_column(text):
+
+    # Convert to string if not
+    cleaned = str(text).strip()
+    
+    # Normalize text to remove invisible or unusual characters
+    cleaned = unicodedata.normalize("NFKC", cleaned)
+    
+    # Clean
+    cleaned = cleaned.lstrip('-').replace("- ","")
+
+    # Convert to string and clean special characters
+    cleaned = str(text).encode('ascii', 'ignore').decode('ascii')
+    # Replace special quotes with single quotes
+    cleaned = cleaned.replace('"', "'").replace('"', "'").replace('"', "'")
+    
+    return np.nan if not cleaned or cleaned.isspace() else cleaned
 
 def format_coa_details(row):
-    # Clean strins and manage non-existent columns
+    # Clean strings and manage non-existent columns
     def clean_str(value):
         if pd.isna(value):
-            return 'na'
+            return ''
+    
+        # Convert to string if not
+        cleaned = str(value).strip()
+        
+        # Final cleaning
+        cleaned = cleaned.strip()
+        if cleaned.startswith("+") or cleaned.startswith("-") or cleaned.startswith("="):
+            cleaned = cleaned[1:]
+        
+        # Convert to string and clean special characters
+        cleaned = str(value).encode('ascii', 'ignore').decode('ascii')
+        # Replace special quotes with single quotes
+        cleaned = cleaned.replace('"', "'").replace('"', "'").replace('"', "'")
+        
         return str(value).strip().lstrip('-')
     
     def get_column_value(row, column_name):
         if column_name in row.index:
             return clean_str(row[column_name])
-        return 'na'
+        return ''
     
     # First add the data from COA details column
     result = clean_str(row['COA details']) + "\n\n"
     
     for i in range(1, 6):
-        # Only add info if the column exists
-        if f'Instrument {i}' in row.index:
-            result += (
-                f"COA Instrument {i} Name: {get_column_value(row, f'Instrument {i}')}\n"
-                f"Instrument {i} Clinical Significance: {get_column_value(row, f'Significance {i}')}\n"
-                f"Instrument {i} HTA Discussion: {get_column_value(row, f'Discussion by HTA body {i}')} & "
-                f"{get_column_value(row, f'HTA Discussion details {i}')}\n\n"
-            )
+        # Only add info if the column exists and has data
+        instrument_name = get_column_value(row, f'Instrument {i}')
+        significance = get_column_value(row, f'Significance {i}')
+        hta_discussion = get_column_value(row, f'Discussion by HTA body {i}')
+        hta_details = get_column_value(row, f'HTA Discussion details {i}')
+        
+        if instrument_name:
+            result += f"COA Instrument {i} Name: {instrument_name}\n"
+            
+        if significance:
+            result += f"Instrument {i} Clinical Significance: {significance}\n"
+            
+        # Only add HTA Discussion line if either discussion or details exist
+        if hta_discussion or hta_details:
+            result += f"Instrument {i} HTA Discussion: {hta_discussion} & {hta_details}\n"
+        
+        # Only add new line if any data was added for this instrument
+        if any([instrument_name, significance, hta_discussion, hta_details]):
+            result += "\n"
     
     return result
 
@@ -57,56 +107,55 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
 
     try:
         df_new['ID']=df['Direct link'].apply(lambda x: x.split("https://hta.quintiles.com/HTA/View/")[1] if "https://hta.quintiles.com/HTA/View/" in x else None)
-        df_new['HTA_AGENCY_NAME']=df['Agency'].apply(lambda x: x.strip() if isinstance(x, str) else x)
-        df_new['COUNTRY']=df['Country'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
-        df_new['HTA_DECISION_DT'] = pd.to_datetime(df['Decision date'], format='%m/%d/%Y')
+        df_new['HTA_AGENCY_NAME']=df['Agency'].apply(clean_and_preserve) 
+        df_new['COUNTRY']=df['Country'].apply(clean_and_preserve) 
+        df_new['HTA_DECISION_DT'] = pd.to_datetime(df['Decision date'], format='%m/%d/%Y', errors='coerce')
         df_new['HTA_DECISION_DT']= df_new['HTA_DECISION_DT'].dt.strftime('%Y%m%d')
-        df_new['BIOMARKERS']=df['Primary_disease_subtype_3'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
-        df_new['PRIMARY_DISEASE']=df['Primary_disease_subtype_1(3)'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
-        df_new['DRUG_NAME']=df['Drug'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
-        df_new['GENERIC_DRUG_NAME']=df['Drug generic'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)
-        df_new['DRUG_COMBINATIONS']=df['Drug combinations'].apply(lambda x: x.strip() if isinstance(x, str) else x).fillna('na').astype(str)        
-        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].fillna('na').astype(str)
-        df_new['DOSING']=df['Dosing'].fillna('na').astype(str)
-        df_new['TREATMENT_DURATION']=df['Maximum treatment duration'].fillna('na').str.strip().str.lstrip('-')
-        df_new['INTERVENTION_ADD_DETAILS']=df['Additional details'].fillna('na').str.strip().str.lstrip('-')
-        df_new['TREATMENT_LINE']=df['Treatment line'].str.strip().fillna('na').str.lstrip('-')
-        df_new['TREATMENT_MODALITY']=df['Treatment modality'].fillna('na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_DRUGS']=df['Comparator drug(s) used by manufacturer'].fillna('na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_COMBINATION_THERAPY']=df['Comparator drug(s) used by manufacturer'].fillna('na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_DRUGS_PAYERS']=df['Most relevant comparator drug(s) for payer'].fillna('na').str.strip().str.lstrip('-')
-        df_new['COMPARATOR_ADD_DETAILS']=df['Additional comparator details'].fillna('na').str.strip().str.lstrip('-')
-        df_new['TARGET_POPULATION']=df['Reviewed indication'].fillna('na').str.strip().str.lstrip('-')
-        df_new['ASMR_REQUESTED']=df['ASMR requested (France)'].fillna('na').str.strip().str.lstrip('-')
-        df_new['ASMR_RECIEVED']=df['ASMR rating (France)'].fillna('na').str.strip().str.lstrip('-')
-        df_new['CLINICAL_OUTCOMES']=df['Clinical outcomes'].fillna('na').str.strip().str.lstrip('-')
-        df_new['DATA_PACKAGES']=df['Clinical evidence included'].fillna('na').str.strip().str.lstrip('-')
-        df_new['STUDY_TYPE']=df['Type of evidence evaluated'].fillna('na').str.strip().str.lstrip('-')
-        df_new['EVENDENCE_SYNTHESIS']=df['Type of evidence synthesis'].fillna('na').str.strip().str.lstrip('-')
-        df_new['OUTCOMES_FROM_EVIDENCE']=df['Outcomes from evidence synthesis evaluated'].fillna('na').str.strip().str.lstrip('-')
-        df_new['COA_INSTRUMENTS']=df['COA instrument'].fillna('na').str.strip().str.lstrip('-')
-        df_new['COA_TYPE']=df['COA type'].fillna('na').str.strip().str.lstrip('-')
+        df_new['HTA_DECISION_DT']= df_new['HTA_DECISION_DT'].astype(str)
+        df_new['BIOMARKERS']=df['Primary_disease_subtype_3'].apply(clean_and_preserve) 
+        df_new['PRIMARY_DISEASE']=df['Primary_disease_subtype_1(3)'].apply(clean_and_preserve) 
+        df_new['DRUG_NAME']=df['Drug'].apply(clean_and_preserve) 
+        df_new['GENERIC_DRUG_NAME']=df['Drug generic'].apply(clean_and_preserve)
+        df_new['DRUG_COMBINATIONS']=df['Drug combinations'].apply(clean_and_preserve)    
+        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['DOSING']=df['Dosing'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['TREATMENT_DURATION']=df['Maximum treatment duration'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['INTERVENTION_ADD_DETAILS']=df['Additional details'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['TREATMENT_LINE']=df['Treatment line'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['TREATMENT_MODALITY']=df['Treatment modality'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['COMPARATOR_DRUGS']=df['Comparator drug(s) used by manufacturer'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['COMPARATOR_COMBINATION_THERAPY']=df['Comparator drug(s) used by manufacturer'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['COMPARATOR_DRUGS_PAYERS']=df['Most relevant comparator drug(s) for payer'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['COMPARATOR_ADD_DETAILS']=df['Additional comparator details'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['TARGET_POPULATION']=df['Reviewed indication'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['ASMR_REQUESTED']=df['ASMR requested (France)'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['ASMR_RECIEVED']=df['ASMR rating (France)'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['CLINICAL_OUTCOMES']=df['Clinical outcomes'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['DATA_PACKAGES']=df['Clinical evidence included'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['STUDY_TYPE']=df['Type of evidence evaluated'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['EVENDENCE_SYNTHESIS']=df['Type of evidence synthesis'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['OUTCOMES_FROM_EVIDENCE']=df['Outcomes from evidence synthesis evaluated'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['COA_INSTRUMENTS']=df['COA instrument'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['COA_TYPE']=df['COA type'].apply(clean_text_column).replace('nan', np.nan)
         df_new['COA_DETAILS']=df.apply(format_coa_details, axis=1)
-        
-        df_new['RWE_USED']=df['RWE used as supporting evidence?'].fillna('na').astype(str)
-        df_new['RWE_DATA_TYPE']=df['Area supported'].fillna('na').astype(str)
-        df_new['RWE_PAYER_ACCEPTED']=df['Accepted by payer?'].fillna('na').astype(str)
-        df_new['HTA_ANALYSIS_TYPE']=df['Type of analysis'].fillna('na').astype(str)
-        df_new['CEA_EFFECTIVENESS_MEASURE']=df['If CEA, what is effectiveness measure?'].fillna('na').astype(str)
-        df_new['ECON_MODEL']=df['Type of model'].fillna('na').astype(str)
-        df_new['TIME_HORIZON']=df['Time horizon'].fillna('na').astype(str)
-        df_new['ECON_MODEL_DESIGN']=df['Model design and key assumptions'].fillna('na').astype(str)
-        df_new['PAYER_DECISION']=df['Payer details'].fillna('na').astype(str)
-        df_new['KEY_DRIVE_CE']=df['Key drivers of cost-effectiveness'].fillna('na').astype(str)
-        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].fillna('na').astype(str)
-        df_new['GENERAL_HTA_CONCLUSION_SUMMARY']=''
-        df_new['CLINICAL_POSITIVES']=df['Clinical positives'].fillna('na').astype(str)
-        df_new['CLINICAL_NEGATIVES']=df['Clinical negatives'].fillna('na').astype(str)
-        df_new['FINAL_RECOMMENDATION']=df['Recommendation'].fillna('na').astype(str)
-        df_new['SUBGROUP_NAME'] = df['Subgroup name 1'].fillna('na').astype(str) + ' ' + df['Subgroup name 2'].fillna('na').astype(str) + ' ' + df['Subgroup name 3'].fillna('na').astype(str) + ' ' + df['Subgroup name 4'].fillna('na').astype(str) + ' ' + df['Subgroup name 5'].fillna('na').astype(str)
-        df_new['HTA_STATUS']=df['HTA status'].fillna('na').astype(str)
-        df_new['QUINTILES_LINK']=df['Direct link'].fillna('na').astype(str)
-        df_new['WEB_URL']=df['Weblink'].fillna('na').astype(str)
+        df_new['RWE_USED']=df['RWE used as supporting evidence?'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['RWE_DATA_TYPE']=df['Area supported'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['RWE_PAYER_ACCEPTED']=df['Accepted by payer?'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['HTA_ANALYSIS_TYPE']=df['Type of analysis'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['CEA_EFFECTIVENESS_MEASURE']=df['If CEA, what is effectiveness measure?'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['ECON_MODEL']=df['Type of model'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['TIME_HORIZON']=df['Time horizon'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['ECON_MODEL_DESIGN']=df['Model design and key assumptions'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['PAYER_DECISION']=df['Payer details'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['KEY_DRIVE_CE']=df['Key drivers of cost-effectiveness'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['GENERAL_HTA_CONCLUSION']=df['General conclusion'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['CLINICAL_POSITIVES']=df['Clinical positives'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['CLINICAL_NEGATIVES']=df['Clinical negatives'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['FINAL_RECOMMENDATION']=df['Recommendation'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['SUBGROUP_NAME'] = df['Subgroup name 1'].apply(clean_text_column).replace('nan', np.nan)+ ' ' + df['Subgroup name 2'].apply(clean_text_column).replace('nan', np.nan) + ' ' + df['Subgroup name 3'].apply(clean_text_column).replace('nan', np.nan)  + ' ' + df['Subgroup name 4'].apply(clean_text_column).replace('nan', np.nan) + ' ' + df['Subgroup name 5'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['HTA_STATUS']=df['HTA status'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['QUINTILES_LINK']=df['Direct link'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['WEB_URL']=df['Weblink'].apply(clean_text_column).replace('nan', np.nan)
     except  Exception as e:
         return "",f"error prepare columns, details: {e}"
     
@@ -158,7 +207,7 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
     # Get unique values for each column 
     unique_values = {}
     for col in filters.columns: 
-        unique_values[col] = list(set(filters[col].str.split(r'[,+]', expand=True).stack()))
+        unique_values[col] = list(set(filters[col].replace(np.nan,'nan').str.split(r'[,+]', expand=True).stack()))
     
     # Create JSON
     output = []

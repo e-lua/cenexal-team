@@ -2,6 +2,36 @@ from datetime import datetime
 import pandas as pd
 import os
 
+def create_filter_mask(df, column_name, filter_values):
+    try:
+        # If there are no filter values, return all True
+        if not filter_values:
+            return pd.Series([True] * len(df))
+            
+        # Clean and split the values
+        if ',' in str(filter_values):
+            # Multiple values
+            values_list = [str(f.strip()) for f in filter_values.split(',')]
+        else:
+            # Unique value
+            values_list = [str(filter_values).strip()]
+        
+        values_list = [str(f.strip()) for f in filter_values.split(',') if f.strip()]
+        
+        def safe_compare(x):
+            if pd.isna(x):
+                return False
+            x_str = str(x)
+            return any(str(f) in x_str for f in values_list)
+            
+        # Create the mask by applying the verification function
+        return df[column_name].apply(safe_compare)
+        
+    except Exception as e:
+        print(f"Error process values {column_name}: {str(e)}")
+        # On error, return a mask that does not filter anything
+        return pd.Series([True] * len(df))
+    
 # This function gets the data from the requested column and the record id from the cleaned file
 def get_columns_hta(path: str,file_name: str, file_extension: str,column_name:str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str, HTA_STATUS:str):
     
@@ -19,78 +49,18 @@ def get_columns_hta(path: str,file_name: str, file_extension: str,column_name:st
         return {"rows":0,"column_data": ""},str(e)
     
     # Filter 'df_cleaned'    
-    if HTA_AGENCY_NAME: 
-        HTA_AGENCY_NAME = [f.strip() for f in HTA_AGENCY_NAME.split(',')] 
-        mask_HTA_AGENCY_NAME = df_cleaned['HTA_AGENCY_NAME'].apply(lambda x: any([f in x for f in HTA_AGENCY_NAME])) 
-    else: 
-        mask_HTA_AGENCY_NAME = pd.Series([True] * len(df_cleaned)) 
-        
-    if COUNTRY: 
-        COUNTRY = [f.strip() for f in COUNTRY.split(',')] 
-        mask_COUNTRY= df_cleaned['COUNTRY'].apply(lambda x: any([f in x for f in COUNTRY])) 
-    else: 
-        mask_COUNTRY = pd.Series([True] * len(df_cleaned)) 
-    
-    if HTA_DECISION_DT: 
-        HTA_DECISION_DT = [f.strip() for f in HTA_DECISION_DT.split(',')] 
-        mask_HTA_DECISION_DT = df_cleaned['HTA_DECISION_DT'].apply(lambda x: any([f in x for f in HTA_DECISION_DT])) 
-    else: 
-        mask_HTA_DECISION_DT = pd.Series([True] * len(df_cleaned)) 
-     
-    if BIOMARKERS: 
-        BIOMARKERS = [f.strip() for f in BIOMARKERS.split(',')] 
-        mask_BIOMARKERS = df_cleaned['BIOMARKERS'].apply(lambda x: any([f in x for f in BIOMARKERS])) 
-    else: 
-        mask_BIOMARKERS = pd.Series([True] * len(df_cleaned)) 
-       
-    if PRIMARY_DISEASE: 
-        PRIMARY_DISEASE = [f.strip() for f in PRIMARY_DISEASE.split(',')] 
-        mask_PRIMARY_DISEASE = df_cleaned['PRIMARY_DISEASE'].apply(lambda x: any([f in x for f in PRIMARY_DISEASE])) 
-    else: 
-        mask_PRIMARY_DISEASE = pd.Series([True] * len(df_cleaned)) 
-     
-    if DRUG_NAME: 
-        DRUG_NAME = [f.strip() for f in DRUG_NAME.split(',')] 
-        mask_DRUG_NAME = df_cleaned['DRUG_NAME'].apply(lambda x: any([f in x for f in DRUG_NAME])) 
-    else: 
-        mask_DRUG_NAME = pd.Series([True] * len(df_cleaned)) 
-     
-    if GENERIC_DRUG_NAME: 
-        GENERIC_DRUG_NAME = [f.strip() for f in GENERIC_DRUG_NAME.split(',')] 
-        mask_GENERIC_DRUG_NAME = df_cleaned['GENERIC_DRUG_NAME'].apply(lambda x: any([f in x for f in GENERIC_DRUG_NAME])) 
-    else: 
-        mask_GENERIC_DRUG_NAME = pd.Series([True] * len(df_cleaned)) 
-     
-    if DRUG_COMBINATIONS: 
-        DRUG_COMBINATIONS = [f.strip() for f in DRUG_COMBINATIONS.split(',')] 
-        mask_DRUG_COMBINATIONS = df_cleaned['DRUG_COMBINATIONS'].apply(lambda x: any([f in x for f in DRUG_COMBINATIONS])) 
-    else: 
-        mask_DRUG_COMBINATIONS = pd.Series([True] * len(df_cleaned)) 
-     
-    if TREATMENT_MODALITY: 
-        TREATMENT_MODALITY = [f.strip() for f in TREATMENT_MODALITY.split(',')] 
-        mask_TREATMENT_MODALITY = df_cleaned['TREATMENT_MODALITY'].apply(lambda x: any([f in x for f in TREATMENT_MODALITY])) 
-    else: 
-        mask_TREATMENT_MODALITY = pd.Series([True] * len(df_cleaned)) 
-     
-    if ASMR_REQUESTED: 
-        ASMR_REQUESTED = [f.strip() for f in ASMR_REQUESTED.split(',')] 
-        mask_ASMR_REQUESTED = df_cleaned['ASMR_REQUESTED'].apply(lambda x: any([f in x for f in ASMR_REQUESTED])) 
-    else: 
-        mask_ASMR_REQUESTED = pd.Series([True] * len(df_cleaned)) 
-     
-    if ASMR_RECIEVED: 
-        ASMR_RECIEVED = [f.strip() for f in ASMR_RECIEVED.split(',')] 
-        mask_ASMR_RECIEVED = df_cleaned['ASMR_RECIEVED'].apply(lambda x: any([f in x for f in ASMR_RECIEVED])) 
-    else: 
-        mask_ASMR_RECIEVED = pd.Series([True] * len(df_cleaned)) 
-    
-    if HTA_STATUS: 
-        HTA_STATUS = [f.strip() for f in HTA_STATUS.split(',')] 
-        mask_HTA_STATUS = df_cleaned['HTA_STATUS'].apply(lambda x: any([f in x for f in HTA_STATUS])) 
-    else: 
-        mask_HTA_STATUS = pd.Series([True] * len(df_cleaned)) 
-     
+    mask_HTA_AGENCY_NAME = create_filter_mask(df_cleaned, 'HTA_AGENCY_NAME', HTA_AGENCY_NAME)      
+    mask_COUNTRY = create_filter_mask(df_cleaned, 'COUNTRY', COUNTRY)  
+    mask_HTA_DECISION_DT = create_filter_mask(df_cleaned, 'HTA_DECISION_DT', HTA_DECISION_DT)
+    mask_BIOMARKERS = create_filter_mask(df_cleaned, 'BIOMARKERS', BIOMARKERS)
+    mask_PRIMARY_DISEASE = create_filter_mask(df_cleaned, 'PRIMARY_DISEASE', PRIMARY_DISEASE)
+    mask_DRUG_NAME = create_filter_mask(df_cleaned, 'DRUG_NAME', DRUG_NAME)
+    mask_GENERIC_DRUG_NAME = create_filter_mask(df_cleaned, 'GENERIC_DRUG_NAME', GENERIC_DRUG_NAME)
+    mask_DRUG_COMBINATIONS = create_filter_mask(df_cleaned, 'DRUG_COMBINATIONS', DRUG_COMBINATIONS)
+    mask_TREATMENT_MODALITY = create_filter_mask(df_cleaned, 'TREATMENT_MODALITY', TREATMENT_MODALITY)
+    mask_ASMR_REQUESTED = create_filter_mask(df_cleaned, 'ASMR_REQUESTED', ASMR_REQUESTED)
+    mask_ASMR_RECIEVED = create_filter_mask(df_cleaned, 'ASMR_RECIEVED', ASMR_RECIEVED)
+    mask_HTA_STATUS = create_filter_mask(df_cleaned, 'HTA_STATUS', HTA_STATUS)     
         
     filtered_df = df_cleaned[mask_HTA_AGENCY_NAME & mask_COUNTRY & mask_HTA_DECISION_DT & mask_BIOMARKERS & mask_PRIMARY_DISEASE & mask_DRUG_NAME & mask_GENERIC_DRUG_NAME & mask_DRUG_COMBINATIONS & mask_TREATMENT_MODALITY & mask_ASMR_REQUESTED & mask_ASMR_RECIEVED & mask_HTA_STATUS]
     
