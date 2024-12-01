@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from models.models import Response,Error,SummarizeQuery
+from repositories.excel.hta import ExcelHTARepository
 from repositories.azureopenai import AzureOpenAIRepository
 from services.file import FileService
 from services.llm import LlmService
@@ -14,14 +15,17 @@ load_dotenv()
 # ApiKey
 API_KEY=os.getenv("API_KEY")
 
+# Initialize ExcelHTARepository
+excel_hta_repository = ExcelHTARepository(source_path="data",destination_path="data")
+
 # Initialize AzureOpenAIRepository
 azure_open_ai_repository = AzureOpenAIRepository(azure_openai_url=os.getenv("AZURE_OPENAI_URL"),azure_deployment=os.getenv("AZURE_DEPLOYMENT"),azure_openai_api_key=os.getenv("AZURE_OPENAI_KEY"),azure_endpoint=os.getenv("AZURE_ENDPOINT"),azure_api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
 
 # Initialize FileService
-file_service = FileService(source_path="data",destination_path="data")
+file_service = FileService(excelHTARepository=excel_hta_repository)
 
 # Initialize LlmService
-llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),os.getenv("AZURE_OPENAI_KEY"),azure_open_ai_repository)
+llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),os.getenv("AZURE_OPENAI_KEY"),azureopenaiRepository=azure_open_ai_repository)
 
 # Initialize FastAPI
 app = FastAPI()
