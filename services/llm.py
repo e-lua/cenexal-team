@@ -4,8 +4,6 @@ from utils.verify_limit_tpm import verify_limit_token_per_minute
 from models.models import Response,Error
 from repositories.azureopenai import AzureOpenAIRepository
 from repositories.excel.hta import ExcelHTARepository
-from pandasai.llm.openai import OpenAI
-from pandasai import SmartDataframe
 import os
 import pandas as pd
 
