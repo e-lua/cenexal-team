@@ -106,3 +106,20 @@ class ExcelHTARepository:
         json_data,error_details = prepare_hta(self.source_path,self.destination_path,file_name,file_extension)
         
         return json_data,error_details
+
+    # This function get the data as dataframe
+    def get_data(self, file_name: str):
+                
+        try:
+            csv_output = os.path.join(f'{self.destination_path}/{file_name}.csv')
+        except Exception as e:
+            return "",f"Error get files, details: {e}"
+        
+        try:
+            df = pd.read_csv(csv_output)
+        except Exception as e:
+            return "",f"Error read csv, details: {e}"
+    
+        return df,""
+            
+        

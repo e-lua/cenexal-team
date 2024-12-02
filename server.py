@@ -25,7 +25,7 @@ azure_open_ai_repository = AzureOpenAIRepository(azure_openai_url=os.getenv("AZU
 file_service = FileService(excelHTARepository=excel_hta_repository)
 
 # Initialize LlmService
-llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),os.getenv("AZURE_OPENAI_KEY"),azureopenaiRepository=azure_open_ai_repository)
+llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),os.getenv("AZURE_OPENAI_KEY"),azureopenaiRepository=azure_open_ai_repository,excelHTARepository=excel_hta_repository)
 
 # Initialize FastAPI
 app = FastAPI()

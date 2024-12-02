@@ -3,17 +3,20 @@ from utils.split_text_by_bytes import split_text_by_bytes
 from utils.verify_limit_tpm import verify_limit_token_per_minute
 from models.models import Response,Error
 from repositories.azureopenai import AzureOpenAIRepository
+from repositories.excel.hta import ExcelHTARepository
+from pandasai.llm.openai import OpenAI
+from pandasai import SmartDataframe
 import os
+import pandas as pd
 
 class LlmService:
-    
-    azureopenaiRepository: AzureOpenAIRepository
-    
-    def __init__(self,model: str,azure_openai_key: str,azureopenaiRepository : AzureOpenAIRepository):
+        
+    def __init__(self,model: str,azure_openai_key: str,azureopenaiRepository : AzureOpenAIRepository,excelHTARepository : ExcelHTARepository):
         
         self.model = model
         self.azureopenaiRepository = azureopenaiRepository
         self.azure_openai_key=azure_openai_key
+        self.excelHTARepository = excelHTARepository
 
     def get_summary(self,max_token_input: int,max_token_output: int,text_to_summarize: str,system_prompt: str,user_prompt: str):
         
@@ -35,7 +38,7 @@ class LlmService:
             return Response(error=Error(code=4003, detail="The text to be summarized is very large"), data=[])
         
         # Summarize text
-        summary,error_details = self.azureopenaiRepository.Summarize(self.azure_openai_key,system_prompt,user_prompt,text_to_summarize,max_token_output)
+        summary,error_details = self.azureopenaiRepository.summarize(self.azure_openai_key,system_prompt,user_prompt,text_to_summarize,max_token_output)
         if error_details != "":
             return Response(error=Error(code=5001, detail=error_details), data=[])
 
@@ -45,3 +48,4 @@ class LlmService:
         # Ok
         return Response(error=Error(code=0, detail=""), data=fragments_to_msteams)
     
+   

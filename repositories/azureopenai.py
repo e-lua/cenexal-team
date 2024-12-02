@@ -40,7 +40,7 @@ class AzureOpenAIRepository:
         # Ok
         return embedded_text.data[0].embedding
 
-    def Summarize(self,azure_api_key:str,system_prompt: str,user_prompt: str,text_to_summary: str,max_token_output: int):
+    def summarize(self,azure_api_key:str,system_prompt: str,user_prompt: str,text_to_summary: str,max_token_output: int):
         
         # Given the user prompt and the text to be summarized, write a summary in markdown table format and separate it into 20 kilobyte fragments if necessary, taking into account that if you do separate, the symbol to identify the separation is _END_.
         
