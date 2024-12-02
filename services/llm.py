@@ -9,11 +9,10 @@ import pandas as pd
 
 class LlmService:
         
-    def __init__(self,model: str,azure_openai_key: str,azureopenaiRepository : AzureOpenAIRepository,excelHTARepository : ExcelHTARepository):
+    def __init__(self,model: str,azureopenaiRepository : AzureOpenAIRepository,excelHTARepository : ExcelHTARepository):
         
         self.model = model
         self.azureopenaiRepository = azureopenaiRepository
-        self.azure_openai_key=azure_openai_key
         self.excelHTARepository = excelHTARepository
 
     def get_summary(self,max_token_input: int,max_token_output: int,text_to_summarize: str,system_prompt: str,user_prompt: str):
@@ -36,7 +35,7 @@ class LlmService:
             return Response(error=Error(code=4003, detail="The text to be summarized is very large"), data=[])
         
         # Summarize text
-        summary,error_details = self.azureopenaiRepository.summarize(self.azure_openai_key,system_prompt,user_prompt,text_to_summarize,max_token_output)
+        summary,error_details = self.azureopenaiRepository.summarize(system_prompt,text_to_summarize,max_token_output)
         if error_details != "":
             return Response(error=Error(code=5001, detail=error_details), data=[])
 
