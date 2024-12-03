@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from models.models import Response,Error,SummarizeQuery
+from models.models import Response,Error,SummarizeQuery,ChatQuery,DataframeQuery
 from repositories.excel.hta import ExcelHTARepository
 from repositories.azureopenai import AzureOpenAIRepository
 from services.file import FileService
@@ -83,7 +83,7 @@ async def get_all_file(request: Request):
     operation_id="post_cenexal_team_file_prepare",
     description="Prepare the uploaded file, convert it to csv and save the original and converted file.",
 )
-async def prepare_file(request: Request,file: UploadFile = File(...)):
+async def hta_prepare_file(request: Request,file: UploadFile = File(...)):
     
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -129,7 +129,7 @@ async def prepare_file(request: Request,file: UploadFile = File(...)):
     operation_id="get_cenexal_team_filters",
     description="Get the filters ready to incorporate the chatbot form for Teams into Adaptive Card.",
 )
-async def get_filters_from_file(request: Request,file_name: str):
+async def hta_get_filters_from_file(request: Request,file_name: str):
     
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -158,7 +158,7 @@ async def get_filters_from_file(request: Request,file_name: str):
     operation_id="get_cenexal_team_column_data",
     description="Gets the column data from cenexal file, row by row, in a concatenated manner.",
 )
-async def get_column(request: Request,file_name: str, file_extension: str, column_name: str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str, HTA_STATUS:str):
+async def hta_get_column(request: Request,file_name: str, file_extension: str, column_name: str, HTA_AGENCY_NAME: str, COUNTRY: str, HTA_DECISION_DT: str, BIOMARKERS: str, PRIMARY_DISEASE: str, DRUG_NAME: str, GENERIC_DRUG_NAME: str, DRUG_COMBINATIONS: str, TREATMENT_MODALITY: str, ASMR_REQUESTED: str, ASMR_RECIEVED: str, HTA_STATUS:str):
 
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -187,7 +187,7 @@ async def get_column(request: Request,file_name: str, file_extension: str, colum
     operation_id="get_summarized_data",
     description="Gets a text and respond with the summary in Markdown table format validated for MS Teams",
 )
-async def summarize(request: Request,payload: SummarizeQuery):
+async def hta_summarize(request: Request,payload: SummarizeQuery):
     
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -197,6 +197,84 @@ async def summarize(request: Request,payload: SummarizeQuery):
 
     # Get column info
     reponse_service = LlmService.get_summary(llm_service,payload.max_token_input,payload.max_token_output,payload.text_to_summary,payload.system_prompt,payload.user_prompt)
+    if reponse_service.error.code != 0:
+        
+        code_error= str(reponse_service.error.code)
+        status=0
+
+        if code_error[:3]=="500":
+            status=500
+            
+        if code_error[:3]=="400":
+            status=400
+        
+        return JSONResponse(
+            status_code=status,
+            content=reponse_service.model_dump()
+        )
+    
+    # OK
+    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
+    return JSONResponse(
+        status_code=200,
+        content=response_obj.model_dump()
+    )
+
+@app.post(
+    "/cenexal-team/v1/hta/chat",
+    name="Chat with the Dataframe",
+    operation_id="chat_with_dataframe",
+    description="Chat with the Dataframe and respond with the system response in Markdown table format validated for MS Teams",
+)
+async def hta_chat(request: Request,payload: ChatQuery):
+    
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
+    # Get column info
+    reponse_service = LlmService.chat(llm_service,"HTA","HTA_mBC_Export_Adnan_PREPARED",payload.user_prompt,payload.max_token_input,payload.max_token_output)
+    if reponse_service.error.code != 0:
+        
+        code_error= str(reponse_service.error.code)
+        status=0
+
+        if code_error[:3]=="500":
+            status=500
+            
+        if code_error[:3]=="400":
+            status=400
+        
+        return JSONResponse(
+            status_code=status,
+            content=reponse_service.model_dump()
+        )
+    
+    # OK
+    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
+    return JSONResponse(
+        status_code=200,
+        content=response_obj.model_dump()
+    )
+
+@app.post(
+    "/cenexal-team/v2/hta/file/column",
+    name="Get data from column with llm",
+    operation_id="get_cenexal_team_column_data_with_llm",
+    description="Gets the column data with llm from cenexal file, row by row, in a concatenated manner.",
+)
+async def hta_chat(request: Request,payload: DataframeQuery):
+    
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
+    # Get column info
+    reponse_service = LlmService.query_dataframe(llm_service,"HTA","HTA_mBC_Export_Adnan_PREPARED",payload.user_prompt,payload.max_token_output)
     if reponse_service.error.code != 0:
         
         code_error= str(reponse_service.error.code)

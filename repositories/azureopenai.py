@@ -61,7 +61,92 @@ class AzureOpenAIRepository:
         except Exception as e:
             return "",f"Error post request, details: {e}"
                      
-        
-                     
         # Ok 
         return content,""
+
+    def completion(self,system_prompt: str,user_prompt: str,max_token_output: int):
+        
+        # Setup OpenAI with Azure
+        openai.api_type = "azure"
+        openai.azure_endpoint = self.azure_endpoint
+        openai.api_version = self.azure_api_version
+        openai.api_key = self.azure_api_key
+
+        try:
+                       
+            response = openai.chat.completions.create(
+                model=self.azure_deployment,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=max_token_output,
+                temperature=0.7
+            )
+            
+            content = response.choices[0].message.content
+            
+        except Exception as e:
+            return "",f"Error post request, details: {e}"
+                    
+                             
+        # Ok 
+        return content,""
+
+    def completion_with_json_object(self,system_prompt: str,user_prompt: str,max_token_output: int):
+        
+        # Headers
+        headers = {
+            "Content-Type": "application/json",
+            "api-key": self.azure_api_key
+        }
+        
+        # Body de la solicitud
+        body = {
+            "messages": [
+                {
+                    "role": "system",
+                    "content": f"""
+                            ${system_prompt} 
+                    """
+                },
+                {
+                    "role": "user",
+                    "content": f"""
+                            ${user_prompt} 
+                    """
+                }
+            ],
+            "temperature": 0.7,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "max_tokens": 4096,
+            "response_format": {
+                "type": "json_object"
+            }
+        }
+        
+        try:
+                       
+            # Request
+            response = requests.post(url=self.azure_openai_url, headers=headers, data=json.dumps(body))
+    
+            # Verify status request
+            if response.status_code != 200:
+                return "",f"Error requests {response.text}"
+                
+            # Convert response
+            response_json = response.json()
+            
+            content = response_json['choices'][0]['message']['content']
+            
+        except Exception as e:
+            return "",f"Error post request, details: {e}"
+                    
+                             
+        # Ok 
+        return content,""
+    
+
+    
+    

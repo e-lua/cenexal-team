@@ -15,3 +15,12 @@ class SummarizeQuery(BaseModel):
     user_prompt: str
     max_token_input: int
     max_token_output: int
+
+class ChatQuery(BaseModel):
+    user_prompt: str
+    max_token_input: int
+    max_token_output: int
+
+class DataframeQuery(BaseModel):
+    user_prompt: str
+    max_token_output: int
