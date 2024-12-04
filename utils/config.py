@@ -1,7 +1,7 @@
 import time
 
 # Max. tokens per minute
-MAX_TOKENS = 25000
+MAX_TOKENS = 29000
 MAX_REQUEST = 160
 CURRENT_STATUS = "FREE"
 WINDOW = 60  # 60 seconds

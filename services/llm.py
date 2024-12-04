@@ -84,6 +84,12 @@ class LlmService:
                     {"role": "user", "content": user_prompt},
                 ]
         
+        
+        # Verify token limit per minute
+        is_exceeded = verify_limit_token_per_minute(max_token_output)
+        if is_exceeded:
+           return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data=[]) 
+        
         # Chat
         response_chat,error_details = self.azureopenaiRepository.completion(messages,max_token_output)
         if error_details != "":
@@ -96,7 +102,14 @@ class LlmService:
         return Response(error=Error(code=0, detail=""), data=fragments_to_msteams) 
 
     def chat_completion_with_memory(self,chat_id: str,user_prompt: str,max_token_output: int):
-                
+        
+        
+        # Verify token limit per minute
+        is_exceeded = verify_limit_token_per_minute(max_token_output)
+        if is_exceeded:
+           return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data=[]) 
+        
+
         # Create an objcet for chat_id y messages 
         data_object = { "chat_id": chat_id,
         "messages": []}
