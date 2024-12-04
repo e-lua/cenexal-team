@@ -59,12 +59,11 @@ class LlmService:
             return Response(error=Error(code=5001, detail=error_details), data=[])
         
         df_cleaned = dataframe_hta.dropna(how='all')
-        df_head = df_cleaned.head(2)
+        df_head = df_cleaned.head(3)
         df_as_text = df_head.to_string(index=False)
         json_data = df_head.to_json(orient='records')
-
         
-        if len(df_as_text)>110000:
+        if len(df_as_text)>200000:
             return Response(error=Error(code=4004, detail="you are trying to send a long text"), data=[])
                     
         # Count tokens
