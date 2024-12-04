@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from models.models import Response,Error,SummarizeQuery,ChatQuery,DataframeQuery
 from repositories.excel.hta import ExcelHTARepository
 from repositories.azureopenai import AzureOpenAIRepository
+from repositories.memory_chat import MemoryChatRepository
 from services.file import FileService
 from services.llm import LlmService
 from dotenv import load_dotenv
@@ -21,11 +22,14 @@ excel_hta_repository = ExcelHTARepository(source_path="data",destination_path="d
 # Initialize AzureOpenAIRepository
 azure_open_ai_repository = AzureOpenAIRepository(azure_openai_url=os.getenv("AZURE_OPENAI_URL"),azure_deployment=os.getenv("AZURE_DEPLOYMENT"),azure_openai_api_key=os.getenv("AZURE_OPENAI_KEY"),azure_endpoint=os.getenv("AZURE_ENDPOINT"),azure_api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
 
+# Initialize ExcelHTARepository
+memory_chat_repository = MemoryChatRepository()
+
 # Initialize FileService
 file_service = FileService(excelHTARepository=excel_hta_repository)
 
 # Initialize LlmService
-llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),azureopenaiRepository=azure_open_ai_repository,excelHTARepository=excel_hta_repository)
+llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),azureopenaiRepository=azure_open_ai_repository,excelHTARepository=excel_hta_repository,memoryChatRepository=memory_chat_repository)
 
 # Initialize FastAPI
 app = FastAPI()
@@ -221,12 +225,12 @@ async def hta_summarize(request: Request,payload: SummarizeQuery):
     )
 
 @app.post(
-    "/cenexal-team/v1/hta/chat",
+    "/cenexal-team/v1/hta/chat-with-file",
     name="Chat with the Dataframe",
     operation_id="chat_with_dataframe",
     description="Chat with the Dataframe and respond with the system response in Markdown table format validated for MS Teams",
 )
-async def hta_chat(request: Request,payload: ChatQuery):
+async def hta_chat_with_file(request: Request,payload: ChatQuery):
     
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -235,7 +239,46 @@ async def hta_chat(request: Request,payload: ChatQuery):
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service = LlmService.chat(llm_service,"HTA","HTA_mBC_Export_Adnan_PREPARED",payload.user_prompt,payload.max_token_input,payload.max_token_output)
+    reponse_service = LlmService.chat_file(llm_service,"HTA","HTA_mBC_Export_Adnan_PREPARED",payload.user_prompt,payload.max_token_output)
+    if reponse_service.error.code != 0:
+        
+        code_error= str(reponse_service.error.code)
+        status=0
+
+        if code_error[:3]=="500":
+            status=500
+            
+        if code_error[:3]=="400":
+            status=400
+        
+        return JSONResponse(
+            status_code=status,
+            content=reponse_service.model_dump()
+        )
+    
+    # OK
+    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
+    return JSONResponse(
+        status_code=200,
+        content=response_obj.model_dump()
+    )
+
+@app.post(
+    "/cenexal-team/v1/chat-with-memory",
+    name="Chat with memory ",
+    operation_id="chat_with_memory",
+    description="Chat with memory and respond with the system response in Markdown format validated for MS Teams",
+)
+async def chat_with_memory(request: Request,payload: ChatQuery):
+    
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
+    # Get column info
+    reponse_service = LlmService.chat_completion_with_memory(llm_service,payload.chat_id,payload.user_prompt,payload.max_token_output)
     if reponse_service.error.code != 0:
         
         code_error= str(reponse_service.error.code)

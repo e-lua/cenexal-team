@@ -1,4 +1,5 @@
 from langchain_openai import AzureOpenAI
+from typing import List, Dict
 import openai
 import requests
 import json
@@ -64,7 +65,7 @@ class AzureOpenAIRepository:
         # Ok 
         return content,""
 
-    def completion(self,system_prompt: str,user_prompt: str,max_token_output: int):
+    def completion(self,input_messages: List[Dict[str, str]],max_token_output: int):
         
         # Setup OpenAI with Azure
         openai.api_type = "azure"
@@ -76,10 +77,7 @@ class AzureOpenAIRepository:
                        
             response = openai.chat.completions.create(
                 model=self.azure_deployment,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=input_messages,
                 max_tokens=max_token_output,
                 temperature=0.7
             )
@@ -88,8 +86,7 @@ class AzureOpenAIRepository:
             
         except Exception as e:
             return "",f"Error post request, details: {e}"
-                    
-                             
+
         # Ok 
         return content,""
 
