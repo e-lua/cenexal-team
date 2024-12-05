@@ -172,9 +172,12 @@ class LlmService:
         answer,error_details = self.azureopenaiRepository.completion(messages,max_token_output)
         if error_details != "":
             return Response(error=Error(code=5001, detail=error_details), data=[])
+        
+        # Split summary
+        fragments_to_msteams = split_text_by_bytes(answer,20000)
                 
         # Ok
-        return Response(error=Error(code=0, detail=""), data=answer)
+        return Response(error=Error(code=0, detail=""), data=fragments_to_msteams)
 
     def human_query_to_sql(self,human_query: str,max_token_output: int):
                 
