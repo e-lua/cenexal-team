@@ -25,3 +25,7 @@ class DataframeQuery(BaseModel):
     user_prompt: str
     max_token_output: int
     chat_id: str
+    
+class HumanQuery(BaseModel):
+    user_prompt: str
+    max_token_output: int

@@ -26,6 +26,5 @@ def create_filter_mask(df, column_name, filter_values):
         return df[column_name].apply(safe_compare)
         
     except Exception as e:
-        print(f"Error process values {column_name}: {str(e)}")
         # On error, return a mask that does not filter anything
         return pd.Series([True] * len(df))

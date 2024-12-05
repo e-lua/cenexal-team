@@ -5,18 +5,21 @@ from models.models import Response,Error
 from repositories.azureopenai import AzureOpenAIRepository
 from repositories.excel.hta import ExcelHTARepository
 from repositories.memory_chat import MemoryChatRepository
+from repositories.ms_sql_server.hta import MsSQLServerHTARepository
+from typing import Any
 import pandas as pd
 import json
 import io
 
 class LlmService:
         
-    def __init__(self,model: str,azureopenaiRepository : AzureOpenAIRepository,excelHTARepository : ExcelHTARepository,memoryChatRepository: MemoryChatRepository):
+    def __init__(self,model: str,azureopenaiRepository : AzureOpenAIRepository,excelHTARepository : ExcelHTARepository,memoryChatRepository: MemoryChatRepository,sqlServerHTARepository: MsSQLServerHTARepository):
         
         self.model = model
         self.azureopenaiRepository = azureopenaiRepository
         self.excelHTARepository = excelHTARepository
         self.memoryChatRepository=memoryChatRepository
+        self.sqlServerHTARepository = sqlServerHTARepository
 
     def get_summary(self,max_token_input: int,max_token_output: int,text_to_summarize: str,system_prompt: str,user_prompt: str):
         
@@ -102,13 +105,11 @@ class LlmService:
 
     def chat_completion_with_memory(self,chat_id: str,user_prompt: str,max_token_output: int):
         
-        
         # Verify token limit per minute
         is_exceeded = verify_limit_token_per_minute(max_token_output)
         if is_exceeded:
            return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data=[]) 
         
-
         # Create an objcet for chat_id y messages 
         data_object = { "chat_id": chat_id,
         "messages": []}
@@ -195,4 +196,82 @@ class LlmService:
         result = context_dataframe.get("resultado")
 
         # Ok
-        return Response(error=Error(code=0, detail=""), data=result)  
+        return Response(error=Error(code=0, detail=""), data=result) 
+
+    def build_answer(self,result: list[dict[str, Any]], human_query: str,max_token_output:int):
+
+        # Verify token limit per minute
+        is_exceeded = verify_limit_token_per_minute(max_token_output)
+        if is_exceeded:
+           return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data=[]) 
+        
+        system_message = f"""
+        Given a users question and the SQL rows response from the database from which the user wants to get the answer,
+        write a response to the user's question in Markdown format.
+        <user_question> 
+        {human_query}
+        </user_question>
+        <sql_response>
+        ${result} 
+        </sql_response>
+        """
+
+        messages=[
+            {"role": "system", "content": system_message}
+        ]
+                
+        # Get the python code
+        answer,error_details = self.azureopenaiRepository.completion(messages,max_token_output)
+        if error_details != "":
+            return Response(error=Error(code=5001, detail=error_details), data=[])
+                
+        # Ok
+        return Response(error=Error(code=0, detail=""), data=answer)
+
+    def human_query_to_sql(self,human_query: str,max_token_output: int):
+                
+        # Verify token limit per minute
+        is_exceeded = verify_limit_token_per_minute(max_token_output)
+        if is_exceeded:
+           return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data=[]) 
+        
+        # Count tokens
+        tokens,error_details = token_counter(human_query,self.model)
+        if error_details != "":
+            return Response(error=Error(code=5001, detail=error_details), data=[])
+             
+        if tokens > 110000:
+            return Response(error=Error(code=4003, detail="The text to be summarized is very large"), data=[])
+        
+        # Get the database schema
+        database_schema = self.sqlServerHTARepository.get_schema()
+        
+        system_prompt = f"""
+        Given the following schema, write a SQL query that retrieves the requested information. 
+        Return the SQL query inside a JSON structure with the key "sql_query".
+        <example>{{
+            "sql_query": "SELECT * FROM users WHERE age > 18;"
+            "original_query": "Show me all users older than 18 years old."
+        }}
+        </example>
+        <schema>
+        {database_schema}
+        </schema>
+        """
+        user_prompt = human_query
+  
+        # Get the python code
+        sql_query,error_details = self.azureopenaiRepository.completion_with_json_object(system_prompt,user_prompt,max_token_output)
+        if error_details != "":
+            return Response(error=Error(code=5001, detail=error_details), data=[])
+            
+        # Verify format SQL query
+        if not sql_query:
+            return Response(error=Error(code=5002, detail="SQL query generation failed"), data=[])
+        result_dict = json.loads(sql_query)
+        
+        # Query sql
+        result_query = self.sqlServerHTARepository.query(result_dict["sql_query"])
+    
+        # Ok
+        return Response(error=Error(code=0, detail=""), data=result_query) 
