@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from models.models import Response,Error,SummarizeQuery,ChatQuery,DataframeQuery,HumanQuery
+from models.models import Response,Error,SummarizeQuery,ChatQuery,DataframeQuery
 from repositories.excel.hta import ExcelHTARepository
 from repositories.azureopenai import AzureOpenAIRepository
 from repositories.memory_chat import MemoryChatRepository
@@ -229,12 +229,12 @@ async def hta_summarize(request: Request,payload: SummarizeQuery):
     )
 
 @app.post(
-    "/cenexal-team/v1/hta/chat-with-file",
-    name="Chat with the Dataframe",
-    operation_id="chat_with_dataframe",
-    description="Chat with the Dataframe and respond with the system response in Markdown table format validated for MS Teams",
+    "/cenexal-team/v1/chat-with-file",
+    name="Chat with the database",
+    operation_id="chat_with_database",
+    description="Chat with the database and respond with the system response in Markdown table format validated for MS Teams",
 )
-async def hta_chat_with_file(request: Request,payload: ChatQuery):
+async def chat_with_file(request: Request,payload: ChatQuery):
     
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -243,10 +243,10 @@ async def hta_chat_with_file(request: Request,payload: ChatQuery):
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service = LlmService.chat_file(llm_service,"HTA","HTA_mBC_Export_Adnan_PREPARED",payload.user_prompt,payload.max_token_output)
-    if reponse_service.error.code != 0:
+    reponse_service_sql_query = LlmService.human_query_to_sql(llm_service,payload.user_prompt,payload.max_token_output)
+    if reponse_service_sql_query.error.code != 0:
         
-        code_error= str(reponse_service.error.code)
+        code_error= str(reponse_service_sql_query.error.code)
         status=0
 
         if code_error[:3]=="500":
@@ -257,16 +257,35 @@ async def hta_chat_with_file(request: Request,payload: ChatQuery):
         
         return JSONResponse(
             status_code=status,
-            content=reponse_service.model_dump()
+            content=reponse_service_sql_query.model_dump()
+        )
+    
+    # Get response
+    reponse_service_build_answer = LlmService.build_answer(llm_service,reponse_service_sql_query,payload.user_prompt,payload.max_token_output)
+    if reponse_service_build_answer.error.code != 0:
+        
+        code_error= str(reponse_service_build_answer.error.code)
+        status=0
+
+        if code_error[:3]=="500":
+            status=500
+            
+        if code_error[:3]=="400":
+            status=400
+        
+        return JSONResponse(
+            status_code=status,
+            content=reponse_service_build_answer.model_dump()
         )
     
     # OK
-    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
+    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service_build_answer.data)
+    
     return JSONResponse(
         status_code=200,
         content=response_obj.model_dump()
     )
-
+   
 @app.post(
     "/cenexal-team/v1/chat-with-memory",
     name="Chat with memory ",
@@ -345,64 +364,6 @@ async def hta_update_in_database(request: Request):
         content=response_obj.model_dump()
     )
 
-@app.post(
-    "/cenexal-team/v1/human-query",
-    name="Convert human query to sql",
-    operation_id="human_query_to_sql",
-    description="Convert human query to sql.",
-)
-async def human_query_to_sql(request: Request,payload: HumanQuery) ->dict[str,str]:
-    
-    api_key = request.headers.get("api-key")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="api-key not provided")
-    if request.headers.get("api-key")!=API_KEY:
-        raise HTTPException(status_code=400, detail="Invalid api-key")        
-
-    # Get column info
-    reponse_service_sql_query = LlmService.human_query_to_sql(llm_service,payload.user_prompt,payload.max_token_output)
-    if reponse_service_sql_query.error.code != 0:
-        
-        code_error= str(reponse_service_sql_query.error.code)
-        status=0
-
-        if code_error[:3]=="500":
-            status=500
-            
-        if code_error[:3]=="400":
-            status=400
-        
-        return JSONResponse(
-            status_code=status,
-            content=reponse_service_sql_query.model_dump()
-        )
-    
-    # Get response
-    reponse_service_build_answer = LlmService.build_answer(llm_service,reponse_service_sql_query,payload.user_prompt,payload.max_token_output)
-    if reponse_service_build_answer.error.code != 0:
-        
-        code_error= str(reponse_service_build_answer.error.code)
-        status=0
-
-        if code_error[:3]=="500":
-            status=500
-            
-        if code_error[:3]=="400":
-            status=400
-        
-        return JSONResponse(
-            status_code=status,
-            content=reponse_service_build_answer.model_dump()
-        )
-    
-    # OK
-    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service_build_answer.data)
-    
-    return JSONResponse(
-        status_code=200,
-        content=response_obj.model_dump()
-    )
-   
 @app.post(
     "/cenexal-team/v2/hta/file/column",
     name="Get data from column with llm",

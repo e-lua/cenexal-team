@@ -51,58 +51,6 @@ class LlmService:
         # Ok
         return Response(error=Error(code=0, detail=""), data=fragments_to_msteams)
 
-    def chat_file(self, file:str,file_name: str,user_prompt: str,max_token_output: int):
-                
-        if file=="HTA":
-            dataframe_hta,error_details = self.excelHTARepository.get_data(file_name)
-            if error_details != "":
-                return Response(error=Error(code=5001, detail="error get the hta as a dataframe, details: "+error_details), data="")
-        
-        if dataframe_hta.empty:
-            return Response(error=Error(code=5001, detail=error_details), data=[])
-        
-        df_cleaned = dataframe_hta.dropna(how='all')
-        df_head = df_cleaned.head(3)
-        df_as_text = df_head.to_string(index=False)
-        json_data = df_head.to_json(orient='records')
-        
-        if len(df_as_text)>200000:
-            return Response(error=Error(code=4004, detail="you are trying to send a long text"), data=[])
-                    
-        # Count tokens
-        tokens,error_details = token_counter(df_as_text,self.model)
-        if error_details != "":
-            return Response(error=Error(code=5001, detail=error_details), data=[])
-                
-        if tokens > 100000:
-            return Response(error=Error(code=4003, detail="The text to be summarized is very large"), data=[])
-
-        system_prompt= f"You are an expert in data analysis and will receive the user's dataframe and his query. You must respond in Markdown format and in English.."
-        
-        user_prompt=f"Estos son los datos del DataFrame:\n{json_data}\n{user_prompt}"
-        
-        messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ]
-        
-        
-        # Verify token limit per minute
-        is_exceeded = verify_limit_token_per_minute(max_token_output)
-        if is_exceeded:
-           return Response(error=Error(code=4001, detail="Token rate limit have been exceeded"), data=[]) 
-        
-        # Chat
-        response_chat,error_details = self.azureopenaiRepository.completion(messages,max_token_output)
-        if error_details != "":
-            return Response(error=Error(code=5001, detail=error_details), data=[])
-                
-        # Split summary
-        fragments_to_msteams = split_text_by_bytes(response_chat,20000)
-        
-        # Ok
-        return Response(error=Error(code=0, detail=""), data=fragments_to_msteams) 
-
     def chat_completion_with_memory(self,chat_id: str,user_prompt: str,max_token_output: int):
         
         # Verify token limit per minute
@@ -270,8 +218,14 @@ class LlmService:
             return Response(error=Error(code=5002, detail="SQL query generation failed"), data=[])
         result_dict = json.loads(sql_query)
         
+        print(result_dict["sql_query"])
+        
         # Query sql
         result_query = self.sqlServerHTARepository.query(result_dict["sql_query"])
-    
+
+        # Count words
+        if not result_query:
+            return Response(error=Error(code=4002, detail="No data found"), data=[])
+        
         # Ok
         return Response(error=Error(code=0, detail=""), data=result_query) 
