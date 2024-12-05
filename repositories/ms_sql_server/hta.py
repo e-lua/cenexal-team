@@ -1,5 +1,4 @@
-from sqlalchemy import create_engine, text,inspect,QueuePool
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text, inspect, QueuePool
 from typing import Any
 import pandas as pd
 
@@ -8,7 +7,7 @@ class MsSQLServerHTARepository:
     
     def __init__(self,username: str,password: str,server: str,database: str):
         
-        self.connection_string = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server"
+        self.connection_string = f"mssql+pymssql://{username}:{password}@{server}/{database}"
         self.engine = create_engine(self.connection_string,poolclass=QueuePool,pool_size=50,max_overflow=100)
         
     def udpate(self,dataframe: pd.DataFrame):
