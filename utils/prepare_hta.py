@@ -156,6 +156,7 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
         df_new['HTA_STATUS']=df['HTA status'].apply(clean_text_column).replace('nan', np.nan)
         df_new['QUINTILES_LINK']=df['Direct link'].apply(clean_text_column).replace('nan', np.nan)
         df_new['WEB_URL']=df['Weblink'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['REIMBURSED_INDICATION']=df['Specify reimbursed indication (final)'].apply(clean_text_column).replace('nan', np.nan) + ' ' + df['Reimbursed indication'].apply(clean_text_column).replace('nan', np.nan)
     except  Exception as e:
         return "",f"error prepare columns, details: {e}"
     
