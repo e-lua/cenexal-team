@@ -62,6 +62,9 @@ The features available to interact with in the copilot are:
 6. The model responds with the summary.
 7. The Server and Copilot send the summary to the User.
 
+> **💡Nota:**
+> The chat history stores conversations for up to 30 minutes, allowing users to continue chatting with the previous responses they have received.
+
 ## Feature 2: Chat with HTA file
 
 ![Chat with HTA file](./assets/ChatWithHTAFile.jpg)
