@@ -2,7 +2,7 @@ from utils.token_counter import token_counter
 from utils.split_text_by_bytes import split_text_by_bytes
 from utils.verify_limit_tpm import verify_limit_token_per_minute
 from models.models import Response,Error
-from repositories.azureopenai import AzureOpenAIRepository
+from repositories.azure_openai import AzureOpenAIRepository
 from repositories.excel.hta import ExcelHTARepository
 from repositories.memory_chat import MemoryChatRepository
 from repositories.ms_sql_server.hta import MsSQLServerHTARepository
