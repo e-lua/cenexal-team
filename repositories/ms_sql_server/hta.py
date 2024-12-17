@@ -80,4 +80,4 @@ class MsSQLServerHTARepository:
         with self.engine.connect() as connection:
             statement = text(sql_query)
             result = connection.execute(statement)
-            return [dict(row._mapping) for row in result]   
+            return [dict(row._mapping) for row in result]

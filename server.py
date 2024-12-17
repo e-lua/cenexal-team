@@ -5,6 +5,7 @@ from models.models import Response,Error,SummarizeQuery,ChatQuery,DataframeQuery
 from repositories.excel.hta import ExcelHTARepository
 from repositories.azure_openai import AzureOpenAIRepository
 from repositories.memory_chat import MemoryChatRepository
+from repositories.azure_blob_storage import BlobStorageRepository
 from repositories.ms_sql_server.hta import MsSQLServerHTARepository
 from services.hta import  HTAService
 from services.llm import LlmService
@@ -17,7 +18,7 @@ load_dotenv()
 # ApiKey
 API_KEY=os.getenv("API_KEY")
 
-# Initialize ExcelHTARepository
+# Initialize SQLHTARepository
 sqlserver_hta_repository = MsSQLServerHTARepository(os.getenv("AZURE_SQL_USER"),os.getenv("AZURE_SQL_PASS"),os.getenv("AZURE_SQL_SERVER"),os.getenv("AZURE_SQL_DATABASE"))
 
 # Initialize ExcelHTARepository
@@ -26,11 +27,14 @@ excel_hta_repository = ExcelHTARepository(source_path="data",destination_path="d
 # Initialize AzureOpenAIRepository
 azure_open_ai_repository = AzureOpenAIRepository(azure_openai_url=os.getenv("AZURE_OPENAI_URL"),azure_deployment=os.getenv("AZURE_DEPLOYMENT"),azure_openai_api_key=os.getenv("AZURE_OPENAI_KEY"),azure_endpoint=os.getenv("AZURE_ENDPOINT"),azure_api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
 
+# Initialize AzureBlobRepository
+azure_blobstorage_repository = BlobStorageRepository(azure_storage_account_name=os.getenv("AZURE_STORAGE_ACCOUNT_NAME"),azure_storage_account_key=os.getenv("AZURE_STORAGE_ACCOUNT_KEY"),azure_storage_table_name=os.getenv("AZURE_STORAGE_TABLE_NAME"))
+
 # Initialize ExcelHTARepository
 memory_chat_repository = MemoryChatRepository()
 
 # Initialize  HTAService
-file_service =  HTAService(excelHTARepository=excel_hta_repository,sqlServerHTARepository=sqlserver_hta_repository)
+hta_service =  HTAService(excelHTARepository=excel_hta_repository,sqlServerHTARepository=sqlserver_hta_repository,blobStorageRepository=azure_blobstorage_repository)
 
 # Initialize LlmService
 llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),azureopenaiRepository=azure_open_ai_repository,excelHTARepository=excel_hta_repository,memoryChatRepository=memory_chat_repository,sqlServerHTARepository=sqlserver_hta_repository)
@@ -104,7 +108,7 @@ async def hta_prepare_file(request: Request,file: UploadFile = File(...)):
     file_extension =  filename_splitted[1]
         
     # Delete source file
-    reponse_delete_source =  HTAService.delete_files(file_service,file_name,file_extension)
+    reponse_delete_source =  HTAService.delete_files(hta_service,file_name,file_extension)
     if reponse_delete_source.error.code != 0:
         return JSONResponse(
             status_code=500,
@@ -117,7 +121,7 @@ async def hta_prepare_file(request: Request,file: UploadFile = File(...)):
         file_object.write(file.file.read())
         
     # Prepare file
-    reponse_service =  HTAService.prepare_clean_excel(file_service,file_name,file_extension)
+    reponse_service =  HTAService.prepare_clean_excel(hta_service,file_name,file_extension)
     if reponse_service.error.code != 0:
         return JSONResponse(
             status_code=500,
@@ -146,7 +150,7 @@ async def hta_get_filters_from_file(request: Request,file_name: str):
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get filters
-    reponse_service =  HTAService.get_filters_from_excel(file_service,file_name)
+    reponse_service =  HTAService.get_filters_from_excel(hta_service,file_name)
     if reponse_service.error.code != 0:
         return JSONResponse(
             status_code=500,
@@ -175,7 +179,7 @@ async def hta_get_column(request: Request,file_name: str, file_extension: str, c
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service =  HTAService.get_columns_from_excel(file_service,file_name,file_extension,column_name, HTA_AGENCY_NAME, COUNTRY, HTA_DECISION_DT, BIOMARKERS, PRIMARY_DISEASE, DRUG_NAME, GENERIC_DRUG_NAME, DRUG_COMBINATIONS, TREATMENT_MODALITY, ASMR_REQUESTED, ASMR_RECIEVED,HTA_STATUS)
+    reponse_service =  HTAService.get_columns_from_excel(hta_service,file_name,file_extension,column_name, HTA_AGENCY_NAME, COUNTRY, HTA_DECISION_DT, BIOMARKERS, PRIMARY_DISEASE, DRUG_NAME, GENERIC_DRUG_NAME, DRUG_COMBINATIONS, TREATMENT_MODALITY, ASMR_REQUESTED, ASMR_RECIEVED,HTA_STATUS)
     if reponse_service.error.code != 0:
         return JSONResponse(
             status_code=500,
@@ -340,7 +344,7 @@ async def hta_update_in_database(request: Request):
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service =  HTAService.move_from_excel_to_database(file_service,"HTA_mBC_Export_Adnan_PREPARED")
+    reponse_service =  HTAService.move_from_excel_to_database(hta_service,"HTA_mBC_Export_Adnan_PREPARED")
     if reponse_service.error.code != 0:
         
         code_error= str(reponse_service.error.code)
@@ -396,6 +400,35 @@ async def hta_chat(request: Request,payload: DataframeQuery):
             content=reponse_service.model_dump()
         )
     
+    # OK
+    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
+    return JSONResponse(
+        status_code=200,
+        content=response_obj.model_dump()
+    )
+
+@app.put(
+    "/cenexal-team/v1/hta/file/update-table-storage",
+    name="Update HTA data in table storage",
+    operation_id="udpate_hta_in_table_storage",
+    description="Update HTA data in table storage.",
+)
+async def hta_update_table_storage(request: Request):
+
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
+    # Get column info
+    reponse_service =  HTAService.move_from_database_to_blob(hta_service)
+    if reponse_service.error.code != 0:
+        return JSONResponse(
+            status_code=500,
+            content=reponse_service.model_dump()
+        )
+
     # OK
     response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
     return JSONResponse(
