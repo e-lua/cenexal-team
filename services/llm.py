@@ -6,6 +6,7 @@ from repositories.azure_openai import AzureOpenAIRepository
 from repositories.excel.hta import ExcelHTARepository
 from repositories.memory_chat import MemoryChatRepository
 from repositories.ms_sql_server.hta import MsSQLServerHTARepository
+from repositories.azure_ai_search import AISearchRepository
 from typing import Any
 import pandas as pd
 import json
@@ -13,13 +14,14 @@ import io
 
 class LlmService:
         
-    def __init__(self,model: str,azureopenaiRepository : AzureOpenAIRepository,excelHTARepository : ExcelHTARepository,memoryChatRepository: MemoryChatRepository,sqlServerHTARepository: MsSQLServerHTARepository):
+    def __init__(self,model: str,azureopenaiRepository : AzureOpenAIRepository,excelHTARepository : ExcelHTARepository,memoryChatRepository: MemoryChatRepository,sqlServerHTARepository: MsSQLServerHTARepository,aisearchRepository:AISearchRepository):
         
         self.model = model
         self.azureopenaiRepository = azureopenaiRepository
         self.excelHTARepository = excelHTARepository
         self.memoryChatRepository=memoryChatRepository
         self.sqlServerHTARepository = sqlServerHTARepository
+        self.aisearchRepository = aisearchRepository
 
     def get_summary(self,max_token_input: int,max_token_output: int,text_to_summarize: str,system_prompt: str,user_prompt: str):
         
@@ -229,6 +231,21 @@ class LlmService:
         # Count words
         if not result_query:
             return Response(error=Error(code=4002, detail="No data found"), data=[])
+        
+        # Ok
+        return Response(error=Error(code=0, detail=""), data=result_query)
+    
+    def human_query_to_aisearch(self,human_query: str,max_token_output: int):
+    
+        # Embed query
+        query_vector,error_embed = self.azureopenaiRepository.embedding(human_query)
+        if error_embed != "":
+            return Response(error=Error(code=5004, detail=error_embed), data=[])
+            
+        # Query AzureAISearch
+        result_query,error_search = self.aisearchRepository.search_by_vector(query_vector)
+        if error_search != "":
+            return Response(error=Error(code=5005, detail=error_search), data=[])
         
         # Ok
         return Response(error=Error(code=0, detail=""), data=result_query) 

@@ -7,6 +7,7 @@ from repositories.azure_openai import AzureOpenAIRepository
 from repositories.memory_chat import MemoryChatRepository
 from repositories.azure_blob_storage import BlobStorageRepository
 from repositories.ms_sql_server.hta import MsSQLServerHTARepository
+from repositories.azure_ai_search import AISearchRepository
 from services.hta import  HTAService
 from services.llm import LlmService
 from dotenv import load_dotenv
@@ -27,6 +28,9 @@ excel_hta_repository = ExcelHTARepository(source_path="data",destination_path="d
 # Initialize AzureOpenAIRepository
 azure_open_ai_repository = AzureOpenAIRepository(azure_openai_url=os.getenv("AZURE_OPENAI_URL"),azure_deployment=os.getenv("AZURE_DEPLOYMENT"),azure_openai_api_key=os.getenv("AZURE_OPENAI_KEY"),azure_endpoint=os.getenv("AZURE_ENDPOINT"),azure_api_version=os.getenv("AZURE_OPENAI_API_VERSION"))
 
+# Initialize AzureAISearchRepository
+azure_aisearch_repository = AISearchRepository(endpoint=os.getenv("AZURE_AISEARCH_ENDPOINT"),index_name=os.getenv("AZURE_AISEARCH_INDEXNAME"),api_key=os.getenv("AZURE_AISEARCH_APIKEY"),api_key_admin=os.getenv("AZURE_AISEARCH_APIKEY_ADMIN"))
+
 # Initialize AzureBlobRepository
 azure_blobstorage_repository = BlobStorageRepository(azure_storage_account_name=os.getenv("AZURE_STORAGE_ACCOUNT_NAME"),azure_storage_account_key=os.getenv("AZURE_STORAGE_ACCOUNT_KEY"),azure_storage_table_name=os.getenv("AZURE_STORAGE_TABLE_NAME"))
 
@@ -34,10 +38,10 @@ azure_blobstorage_repository = BlobStorageRepository(azure_storage_account_name=
 memory_chat_repository = MemoryChatRepository()
 
 # Initialize  HTAService
-hta_service =  HTAService(excelHTARepository=excel_hta_repository,sqlServerHTARepository=sqlserver_hta_repository,blobStorageRepository=azure_blobstorage_repository)
+hta_service =  HTAService(excelHTARepository=excel_hta_repository,sqlServerHTARepository=sqlserver_hta_repository,blobStorageRepository=azure_blobstorage_repository,azureopenaiRepository=azure_open_ai_repository,aisearchRepository=azure_aisearch_repository)
 
 # Initialize LlmService
-llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),azureopenaiRepository=azure_open_ai_repository,excelHTARepository=excel_hta_repository,memoryChatRepository=memory_chat_repository,sqlServerHTARepository=sqlserver_hta_repository)
+llm_service = LlmService(os.getenv("AZURE_DEPLOYMENT"),azureopenaiRepository=azure_open_ai_repository,excelHTARepository=excel_hta_repository,memoryChatRepository=memory_chat_repository,sqlServerHTARepository=sqlserver_hta_repository,aisearchRepository=azure_aisearch_repository)
 
 # Initialize FastAPI
 app = FastAPI()
@@ -368,13 +372,42 @@ async def hta_update_in_database(request: Request):
         content=response_obj.model_dump()
     )
 
-@app.post(
-    "/cenexal-team/v2/hta/file/column",
-    name="Get data from column with llm",
-    operation_id="get_cenexal_team_column_data_with_llm",
-    description="Gets the column data with llm from cenexal file, row by row, in a concatenated manner.",
+@app.put(
+    "/cenexal-team/v1/hta/file/update-table-storage",
+    name="Update HTA data in table storage",
+    operation_id="udpate_hta_in_table_storage",
+    description="Update HTA data in table storage.",
 )
-async def hta_chat(request: Request,payload: DataframeQuery):
+async def hta_update_table_storage(request: Request):
+
+    api_key = request.headers.get("api-key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api-key not provided")
+    if request.headers.get("api-key")!=API_KEY:
+        raise HTTPException(status_code=400, detail="Invalid api-key")        
+
+    # Get column info
+    reponse_service =  HTAService.move_from_database_to_blob(hta_service)
+    if reponse_service.error.code != 0:
+        return JSONResponse(
+            status_code=500,
+            content=reponse_service.model_dump()
+        )
+
+    # OK
+    response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
+    return JSONResponse(
+        status_code=200,
+        content=response_obj.model_dump()
+    )
+
+@app.post(
+    "/cenexal-team/v2/chat-with-file",
+    name="Chat with aisearch",
+    operation_id="chat_with_aisearch",
+    description="Chat with the aisearch and respond with the system response in Markdown table format validated for MS Teams",
+)
+async def chat_with_file_v2(request: Request,payload: ChatQuery):
     
     api_key = request.headers.get("api-key")
     if not api_key:
@@ -383,7 +416,7 @@ async def hta_chat(request: Request,payload: DataframeQuery):
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service = LlmService.query_dataframe(llm_service,"HTA","HTA_mBC_Export_Adnan_PREPARED",payload.user_prompt,payload.max_token_output)
+    reponse_service = LlmService.human_query_to_aisearch(llm_service,payload.user_prompt,payload.max_token_output)
     if reponse_service.error.code != 0:
         
         code_error= str(reponse_service.error.code)
@@ -407,14 +440,14 @@ async def hta_chat(request: Request,payload: DataframeQuery):
         content=response_obj.model_dump()
     )
 
-@app.put(
-    "/cenexal-team/v1/hta/file/update-table-storage",
-    name="Update HTA data in table storage",
-    operation_id="udpate_hta_in_table_storage",
-    description="Update HTA data in table storage.",
+@app.post(
+    "/cenexal-team/v1/hta/file/prepare-json-to-index",
+    name="",
+    operation_id="",
+    description="",
 )
-async def hta_update_table_storage(request: Request):
-
+async def hta_prepare_json(request: Request):
+    
     api_key = request.headers.get("api-key")
     if not api_key:
         raise HTTPException(status_code=400, detail="api-key not provided")
@@ -422,13 +455,23 @@ async def hta_update_table_storage(request: Request):
         raise HTTPException(status_code=400, detail="Invalid api-key")        
 
     # Get column info
-    reponse_service =  HTAService.move_from_database_to_blob(hta_service)
+    reponse_service = HTAService.update_json_in_aisearch(hta_service)
     if reponse_service.error.code != 0:
+        
+        code_error= str(reponse_service.error.code)
+        status=0
+
+        if code_error[:3]=="500":
+            status=500
+            
+        if code_error[:3]=="400":
+            status=400
+        
         return JSONResponse(
-            status_code=500,
+            status_code=status,
             content=reponse_service.model_dump()
         )
-
+    
     # OK
     response_obj = Response(error=Error(code=0, detail=""), data=reponse_service.data)
     return JSONResponse(

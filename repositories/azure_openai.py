@@ -15,7 +15,7 @@ class AzureOpenAIRepository:
         self.azure_api_key=azure_openai_api_key
         self.azure_deployment=azure_deployment
 
-    def Embedding(self,text_to_embed: str):
+    def embedding(self,text_to_embed: str):
         
         # Setup OpenAI with Azure
         openai.api_type = "azure"
@@ -26,13 +26,13 @@ class AzureOpenAIRepository:
         try:     
             embedded_text = openai.embeddings.create(
                 input=text_to_embed,
-                model="text-embedding-ada-002"
+                model="text-embedding-3-large"
             )
         except Exception as e:
-            print("---> Exception embedding text: ",e)
+            return "",f"Error embed, details: {e}"
         
         # Ok
-        return embedded_text.data[0].embedding
+        return embedded_text.data[0].embedding,""
 
     def summarize(self,system_prompt: str,text_to_summary: str,max_token_output: int):
        
