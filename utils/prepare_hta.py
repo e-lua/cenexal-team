@@ -80,6 +80,70 @@ def format_coa_details(row):
     
     return result
 
+def format_rwe_details(row):
+    # Clean strings and manage non-existent columns
+    def clean_str(value):
+        if pd.isna(value):
+            return ''
+    
+        # Convert to string if not
+        cleaned = str(value).strip()
+        
+        # Final cleaning
+        cleaned = cleaned.strip()
+        if cleaned.startswith("+") or cleaned.startswith("-") or cleaned.startswith("="):
+            cleaned = cleaned[1:]
+        
+        # Convert to string and clean special characters
+        cleaned = str(value).encode('ascii', 'ignore').decode('ascii')
+        # Replace special quotes with single quotes
+        cleaned = cleaned.replace('"', "'").replace('"', "'").replace('"', "'")
+        
+        return str(value).strip().lstrip('-')
+    
+    def get_column_value(row, column_name):
+        if column_name in row.index:
+            return clean_str(row[column_name])
+        return ''
+    
+    # First add the data from 'RWE used as supporting evidence?' column
+    first_value = clean_str(row['RWE used as supporting evidence?'])
+    result = first_value + "\n\n"
+    
+    if str(first_value)=="True":
+        for i in range(1, 6):
+            # Only add info if the column exists and has data
+            rwe_source = get_column_value(row, f'RWE source {i}')
+            tpye_of_source = get_column_value(row, f'Type of source {i}')
+            rwe_area_supported = get_column_value(row, f'RWE Area Supported {i}')
+            payer_acceptance = get_column_value(row, f'Payer Acceptance {i}')
+            rwe_rationale = get_column_value(row, f'RWE Rationale {i}')
+            additional_rwe_details = get_column_value(row, f'Additional RWE Details {i}')
+            
+            if rwe_source:
+                result += f"RWE source {i}: {rwe_source}\n"
+                
+            if tpye_of_source:
+                result += f"Type of source {i}: {tpye_of_source}\n"
+                
+            if rwe_area_supported:
+                result += f"RWE Area Supported {i}: {rwe_area_supported}\n"
+                
+            if payer_acceptance:
+                result += f"Payer Acceptance {i}: {payer_acceptance}\n"
+                
+            if rwe_rationale:
+                result += f"RWE Rationale {i}: {rwe_rationale}\n"
+                
+            if additional_rwe_details:
+                result += f"Additional RWE Details {i}: {additional_rwe_details}\n"
+                
+            # Only add new line if any data was added for this instrument
+            if any([rwe_source, tpye_of_source, rwe_area_supported, payer_acceptance,rwe_rationale,additional_rwe_details]):
+                result += "\n"
+        
+    return result
+
 # This function takes the new rows from the "HTA Record Search" table and updates it into the cleaned and prepared CSV
 def prepare_hta(path_source: str, path_destination: str, file_name: str, file_extension: str):
    
@@ -157,6 +221,7 @@ def prepare_hta(path_source: str, path_destination: str, file_name: str, file_ex
         df_new['QUINTILES_LINK']=df['Direct link'].apply(clean_text_column).replace('nan', np.nan)
         df_new['WEB_URL']=df['Weblink'].apply(clean_text_column).replace('nan', np.nan)
         df_new['REIMBURSED_INDICATION']=df['Specify reimbursed indication (final)'].apply(clean_text_column).replace('nan', np.nan) + ' ' + df['Reimbursed indication'].apply(clean_text_column).replace('nan', np.nan)
+        df_new['RWE_DETAILS']=df.apply(format_rwe_details, axis=1)
     except  Exception as e:
         return "",f"error prepare columns, details: {e}"
     
